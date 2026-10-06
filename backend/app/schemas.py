@@ -81,6 +81,7 @@ class RunOut(BaseModel):
     id: int
     plugin: str
     target: str
+    params: dict = {}
     status: RunStatus
     command: str
     attack_techniques: list

@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+import ipaddress
+from urllib.parse import urlparse
+
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -84,6 +87,49 @@ def close_engagement(eid: int, db: Session = Depends(get_db)):
     db.commit()
     audit.record(db, action="engagement.close", actor=e.operator, engagement_id=e.id, detail={})
     return _to_out(e)
+
+
+def _infer_target_type(value: str) -> str:
+    v = value.strip()
+    if "://" in v:
+        return "url"
+    host = v.split("/")[0]
+    try:
+        ipaddress.ip_address(host)
+        return "cidr" if "/" in v else "ip"
+    except ValueError:
+        pass
+    if "/" in v:
+        try:
+            ipaddress.ip_network(v, strict=False)
+            return "cidr"
+        except ValueError:
+            pass
+    return "domain"
+
+
+@router.post("/{eid}/authorization/targets", response_model=AuthorizationOut)
+def add_target(eid: int, value: str = Body(..., embed=True),
+               type: str | None = Body(None, embed=True), db: Session = Depends(get_db)):
+    """Append a target to the engagement's existing authorized perimeter."""
+    e = db.get(Engagement, eid)
+    if not e:
+        raise HTTPException(404, "engagement not found")
+    if e.authorization is None or not e.authorization.accepted:
+        raise HTTPException(400, "declare and accept a scope first")
+    value = (value or "").strip()
+    if not value:
+        raise HTTPException(400, "empty target")
+    ttype = (type or _infer_target_type(value)).strip()
+    targets = list(e.authorization.targets or [])
+    if not any(t.get("value") == value for t in targets):
+        targets.append({"type": ttype, "value": value})
+        e.authorization.targets = targets
+        db.commit()
+        db.refresh(e.authorization)
+        audit.record(db, action="scope.target.add", actor=e.operator, engagement_id=e.id,
+                     detail={"type": ttype, "value": value})
+    return e.authorization
 
 
 @router.delete("/{eid}/authorization")

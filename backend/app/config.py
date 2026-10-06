@@ -11,6 +11,31 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+import os as _os
+
+# Make the app find CLI tools installed by pipx / go / snap / the Metasploit
+# omnibus, whose bin dirs are often NOT on the service's PATH. This is the most
+# common reason a just-installed tool still shows as "sim".
+def _augment_path() -> None:
+    extra = [
+        _os.path.expanduser("~/.local/bin"),   # pipx
+        _os.path.expanduser("~/go/bin"),       # go install
+        "/usr/local/go/bin",
+        "/snap/bin",
+        "/opt/metasploit-framework/bin",
+        "/usr/local/bin", "/usr/sbin", "/sbin",
+    ]
+    cur = _os.environ.get("PATH", "").split(":")
+    seen, out = set(), []
+    for d in extra + cur:
+        if d and d not in seen:
+            seen.add(d)
+            out.append(d)
+    _os.environ["PATH"] = ":".join(out)
+
+
+_augment_path()
+
 BASE_DIR = Path(__file__).resolve().parent.parent          # .../backend
 DATA_DIR = BASE_DIR / "var"                                # runtime data
 REPORT_DIR = DATA_DIR / "reports"

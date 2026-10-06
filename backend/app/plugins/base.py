@@ -33,6 +33,7 @@ class Param:
     default: object = None
     help: str = ""
     choices: list[str] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)  # free-text autocomplete (datalist)
 
 
 @dataclass

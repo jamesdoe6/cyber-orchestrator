@@ -12,7 +12,10 @@ class Hashcat(BasePlugin):
         attack_techniques=["T1110.002"],
         params=[
             Param("hashfile", "Hash/handshake file", "string", help="Path to hashes or a converted WPA (.hc22000) file."),
-            Param("mode", "Hash mode (-m)", "int", default=0, help="e.g. 0=MD5, 1800=sha512crypt, 22000=WPA."),
+            Param("mode", "Hash mode (-m)", "int", default=0,
+                  help="hashcat -m value (autocomplete suggests common modes).",
+                  suggestions=["0","100","1000","1400","1700","1800","500","3200",
+                               "2500","22000","16800","5600","13100","18200","7500"]),
             Param("wordlist", "Wordlist path", "string", help="Path to a wordlist on the VM."),
         ],
         steps=[

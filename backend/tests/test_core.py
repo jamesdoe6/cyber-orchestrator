@@ -230,3 +230,26 @@ def test_cancel_all(client):
         time.sleep(0.2)
     assert all(st.get(i) == "cancelled" for i in ids)
     assert client.get("/api/audit/verify").json()["valid"] is True
+
+
+def test_add_target_to_scope(client):
+    e = client.post("/api/engagements", json={"name": "ats", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])  # authorizes 192.0.2.0/24
+    # out-of-scope target is blocked
+    r = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
+                    json={"plugin": "nmap_scan", "params": {"target": "192.168.0.10"}}).json()
+    assert r["status"] == "blocked" and "out_of_scope" in r["error"]
+    # add it to scope (type inferred), then it passes
+    resp = client.post(f"/api/engagements/{e['id']}/authorization/targets",
+                       json={"value": "192.168.0.0/24"}).json()
+    assert any(t["value"] == "192.168.0.0/24" and t["type"] == "cidr" for t in resp["targets"])
+    r2 = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
+                     json={"plugin": "nmap_scan", "params": {"target": "192.168.0.10"}}).json()
+    assert r2["status"] == "completed"
+    assert client.get("/api/audit/verify").json()["valid"] is True
+
+
+def test_param_suggestions_exposed(client):
+    msf = client.get("/api/plugins/metasploit").json()
+    module_param = [p for p in msf["params"] if p["name"] == "module"][0]
+    assert len(module_param["suggestions"]) > 10

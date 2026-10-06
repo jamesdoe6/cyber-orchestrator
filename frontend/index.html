@@ -325,7 +325,10 @@ function renderCenter(){
     if(pr.type==="bool")input=`<label class="check"><input type="checkbox" ${v?'checked':''} onchange="setParam('${name}',this.checked)"> enable</label>`;
     else if(pr.type==="choice")input=`<select onchange="setParam('${name}',this.value)">`+pr.choices.map(ch=>`<option ${ch===v?'selected':''}>${ch}</option>`).join("")+`</select>`;
     else if(pr.type==="textarea")input=`<textarea rows="5" oninput="setParam('${name}',this.value)">${esc(v)}</textarea>`;
-    else input=`<input value="${esc(String(v))}" oninput="setParam('${name}',this.value)">`;
+    else {const sg=(pr.suggestions&&pr.suggestions.length);
+      const dl=sg?`list="dl_${name}"`:'';
+      const dlel=sg?`<datalist id="dl_${name}">${pr.suggestions.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist>`:'';
+      input=`<input ${dl} value="${esc(String(v))}" oninput="setParam('${name}',this.value)">${dlel}`;}
     return `<div class="field"><label>${pr.label}${pr.required?' *':''}</label>${input}<div class="fhelp">${pr.help||""}</div></div>`;
   }).join("");
   const last=i===steps.length-1;
@@ -370,7 +373,7 @@ async function launch(){
   const r=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:state.plugin.slug,params:state.params});
   btn.disabled=false;btn.textContent="▶ Launch";
   if(r.detail){toast(r.detail,"err");return;}
-  if(r.status==="blocked"){const j=upsertJob(r.id,{plugin:r.plugin||state.plugin.slug,status:"blocked",error:r.error});state.finalized.add(r.id);renderJobs();toast("Blocked: "+(r.error||"").split(":")[0],"err");openJob(r.id);refreshAudit();return;}
+  if(r.status==="blocked"){const j=upsertJob(r.id,{plugin:r.plugin||state.plugin.slug,status:"blocked",error:r.error,target:r.target});state.finalized.add(r.id);renderJobs();toast("Blocked: "+(r.error||"").split(":")[0],"err");openJob(r.id);refreshAudit();return;}
   const j=upsertJob(r.id,{plugin:r.plugin||state.plugin.slug,status:"pending"});j.lines.push("[queued #"+r.id+"]");
   renderJobs();openJob(r.id);toast("Scan #"+r.id+" started","info");
   pollFallback(r.id,0);
@@ -394,7 +397,7 @@ function renderJobs(){
   box.innerHTML=header+(active.length?active.map(row).join(''):'<div class="dim small">No active scans.</div>')
     +(recent.length?`<div class="tiny dim" style="margin:9px 2px 4px">Recent</div>`+recent.map(row).join(''):'');
 }
-function openJob(id){state.openJob=id;const j=state.jobs[id];if(!j)return;$("#jobTitle").textContent=`${j.plugin} · #${id}`;renderJobBody(j);jobDlg.showModal();}
+function openJob(id){state.openJob=id;const j=state.jobs[id];if(!j)return;$("#jobTitle").textContent=`${j.plugin} · #${id}`;renderJobBody(j);if(!jobDlg.open)jobDlg.showModal();}
 function renderJobBody(j){
   if(state.openJob!==j.id)return;const body=$("#jobBody");if(!body)return;
   const stop=isActive(j.status)?`<button class="btn btn-danger" onclick="cancelRun(${j.id})">■ Stop scan</button>`:'';
@@ -403,6 +406,7 @@ function renderJobBody(j){
     <div class="rb-h" style="margin:0 0 5px">Live output</div>
     <pre id="jobLog" class="mono-block" style="max-height:300px;min-height:60px">${esc(j.lines.join('\n'))}</pre>
     ${j.error?`<div class="rem" style="color:#b00020;background:rgba(176,0,32,.08);margin-top:8px">${esc(j.error)}</div>`:''}
+    ${scopeFixBtn(j)}
     ${j.findings&&j.findings.length?`<div style="margin-top:10px"><b>${j.findings.length} finding(s)</b>${findingsTable(j.findings)}</div>`:(j.status==='completed'?'<div class="dim small" style="margin-top:8px">No findings.</div>':'')}`;
   const log=$("#jobLog");if(log)log.scrollTop=log.scrollHeight;
 }
@@ -417,13 +421,32 @@ async function cancelAll(){
   toast(r.ok?`Stopping ${r.requested} scan(s)…`:"Stop all failed", r.ok?"info":"err");
   Object.values(state.jobs).forEach(j=>{if(isActive(j.status))j.status='cancelled';});renderJobs();
 }
+function scopeFixBtn(j){
+  if(j.status!=='blocked'||!j.error)return '';
+  if(j.error.includes('out_of_scope')&&j.target)
+    return `<button class="btn btn-primary" style="margin-top:10px" onclick="addToScope('${esc(j.target)}',${j.id})">+ Add ${esc(j.target)} to scope &amp; relaunch</button>`;
+  if(j.error.includes('no_authorization'))
+    return `<button class="btn btn-primary" style="margin-top:10px" onclick="jobDlg.close();scopeBtn.click();">Declare scope</button>`;
+  return '';
+}
+async function addToScope(value,runId){
+  const r=await post(`/api/engagements/${state.engagement.id}/authorization/targets`,{value});
+  if(r&&r.id){
+    state.engagement.has_authorization=true;updateScopeBadge();renderScopePanel();refreshAudit();
+    toast(`Added ${value} to scope`,'ok');
+    const run=await api(`/api/engagements/${state.engagement.id}/runs/${runId}`);
+    const nr=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:run.plugin,params:run.params});
+    if(nr&&nr.id){const j=upsertJob(nr.id,{plugin:nr.plugin,status:(nr.status||'pending'),error:nr.error,target:nr.target});
+      if(nr.status==='blocked'){state.finalized.add(nr.id);} renderJobs();openJob(nr.id);if(nr.status!=='blocked')pollFallback(nr.id,0);}
+  } else toast('Add to scope failed: '+((r&&r.detail)||''),'err');
+}
 function appendLive(runId,line){const j=state.jobs[runId];if(j){j.lines.push(line);if(j.lines.length>1400)j.lines.splice(0,j.lines.length-1400);}
   if(state.openJob===runId){const log=$("#jobLog");if(log){log.textContent+=(log.textContent?"\n":"")+line;log.scrollTop=log.scrollHeight;}}}
 async function finalizeJob(id,ev){
   if(state.finalized.has(id)){if(state.openJob===id)renderJobBody(state.jobs[id]);return;}
   state.finalized.add(id);
   const r=await api(`/api/engagements/${state.engagement.id}/runs/${id}`);
-  const j=upsertJob(id,{plugin:r.plugin,status:r.status,simulated:(r.parsed&&r.parsed._simulated),error:r.error,findings:r.findings||[]});
+  const j=upsertJob(id,{plugin:r.plugin,status:r.status,simulated:(r.parsed&&r.parsed._simulated),error:r.error,findings:r.findings||[],target:r.target});
   renderJobs();renderJobBody(j);refreshAudit();renderFindings();
   if(ev&&ev.type==='done'){const t=r.status==='completed'?`${r.plugin}: ${(r.findings||[]).length} finding(s)`:`${r.plugin}: ${r.status}`;
     toast(t,r.status==='completed'?'ok':(r.status==='cancelled'?'info':'err'));}
