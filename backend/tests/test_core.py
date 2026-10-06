@@ -130,3 +130,72 @@ def test_concurrent_runs_keep_audit_intact(client):
         time.sleep(0.2)
     assert all(runs.get(i) == "completed" for i in ids)
     assert client.get("/api/audit/verify").json()["valid"] is True
+
+
+def _register_sleep_plugin():
+    from app.models import Mode
+    from app.plugins import registry
+    from app.plugins.base import BasePlugin, PluginMeta, Param, Step
+
+    class SleepPlugin(BasePlugin):
+        meta = PluginMeta(slug="_sleep_test", name="sleep", mode=Mode.attack,
+                          category="Network scan", privilege="active", binary="sleep", description="test",
+                          attack_techniques=["T1046"],
+                          params=[Param("target", "Target", "string")],
+                          steps=[Step("s", "1", "h", ["target"], "")])
+        def build_argv(self, p):  # ignores target; just a long-running process
+            return ["sleep", "30"]
+        def simulate(self, p):
+            return "sim"
+        def parse(self, raw, p):
+            return {}
+        def findings(self, parsed, p):
+            return []
+    registry._REGISTRY["_sleep_test"] = SleepPlugin()
+
+
+def test_cancel_running_scan(client):
+    import time
+    _register_sleep_plugin()
+    e = client.post("/api/engagements", json={"name": "cx", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])
+    r = client.post(f"/api/engagements/{e['id']}/runs",
+                    json={"plugin": "_sleep_test", "params": {"target": "192.0.2.10"}}).json()
+    assert r["status"] == "pending"
+    # wait until it is actually running
+    for _ in range(40):
+        st = client.get(f"/api/engagements/{e['id']}/runs/{r['id']}").json()["status"]
+        if st == "running":
+            break
+        time.sleep(0.1)
+    resp = client.post(f"/api/engagements/{e['id']}/runs/{r['id']}/cancel").json()
+    assert resp["ok"] and resp["status"] in ("cancelling", "cancelled")
+    # it should finalize as cancelled quickly (not wait out sleep 30)
+    start = time.time()
+    final = None
+    while time.time() - start < 8:
+        final = client.get(f"/api/engagements/{e['id']}/runs/{r['id']}").json()["status"]
+        if final == "cancelled":
+            break
+        time.sleep(0.2)
+    assert final == "cancelled"
+    assert client.get("/api/audit/verify").json()["valid"] is True
+
+
+def test_cancel_queued_run(client):
+    # prepare() creates a pending run without dispatching it; cancel must flip it.
+    from app import orchestrator
+    from app.database import SessionLocal
+    from app.models import Engagement
+    from app.plugins import registry
+    e = client.post("/api/engagements", json={"name": "cq", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])
+    db = SessionLocal()
+    run = orchestrator.prepare(db, engagement=db.get(Engagement, e["id"]),
+                               plugin=registry.get("nmap_scan"),
+                               params={"target": "192.0.2.10"}, actor="t")
+    rid = run.id
+    db.close()
+    resp = client.post(f"/api/engagements/{e['id']}/runs/{rid}/cancel").json()
+    assert resp["status"] == "cancelled"
+    assert client.get(f"/api/engagements/{e['id']}/runs/{rid}").json()["status"] == "cancelled"

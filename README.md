@@ -66,6 +66,7 @@ Tools not installed run in flagged **simulation** mode. Full per-tool usage is i
 - **Automatic MITRE ATT&CK** mapping, shown live and in reports.
 - **Consulting-grade reports** (themed HTML + PDF).
 - **Background scans + live progress**: runs execute in a bounded thread pool and don't block the UI; a **WebSocket** streams status and tool output line-by-line, with a polling fallback.
+- **Multiple concurrent scans + Stop**: launch several scans at once; an **Active scans** panel tracks them all and survives tab/module switches. Each has a **Stop** button that cancels it and kills the subprocess (runs finalize as `cancelled`).
 - **Simulation mode**: a module whose tool isn't installed yet runs with clearly-flagged sample output, so you can learn the whole flow before provisioning.
 
 ---

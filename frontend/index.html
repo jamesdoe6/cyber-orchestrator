@@ -162,6 +162,11 @@ details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:8px;
 .att{padding:10px 12px;border-radius:12px;margin-bottom:8px;}
 .att .tid{color:var(--accent);font-weight:700;font-family:var(--mono);}
 .att .tac{font-size:11px;color:var(--muted);margin-top:2px;}
+.jobrow{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:11px;margin-bottom:6px;cursor:pointer;transition:transform .25s var(--ease-spring);}
+.jobrow:hover{transform:translateX(2px);}
+.jobname{flex:1;font-size:12.5px;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.spin{display:inline-block;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
 .scopebox{padding:12px;border-radius:12px;font-size:12.5px;}
 .scopebox .trow{font-family:var(--mono);font-size:11.5px;margin:2px 0;}
 
@@ -213,6 +218,7 @@ dialog::backdrop{background:rgba(10,37,64,.32);backdrop-filter:blur(3px);}
   <aside class="col glass sidebar" id="sidebar"><div class="dim small" style="padding:8px">Create an engagement to begin.</div></aside>
   <section class="col glass-strong glass center" id="center"></section>
   <aside class="col glass rightbar">
+    <div class="rb-h">Active scans</div><div id="jobsPanel"><div class="dim small">No active scans.</div></div>
     <div class="rb-h">Scope</div><div id="scopePanel"><div class="dim small">—</div></div>
     <div class="rb-h">MITRE ATT&amp;CK — module</div><div id="attackModule"><div class="dim small">—</div></div>
     <div class="rb-h">Findings this engagement</div><div id="findSummary"><div class="dim small">—</div></div>
@@ -252,7 +258,7 @@ dialog::backdrop{background:rgba(10,37,64,.32);backdrop-filter:blur(3px);}
 
 <script>
 const API="";
-let state={mode:"attack",engagement:null,plugins:[],plugin:null,step:0,params:{},currentRun:null,finalized:new Set(),ws:null};
+let state={mode:"attack",engagement:null,plugins:[],plugin:null,step:0,params:{},currentRun:null,finalized:new Set(),ws:null,jobs:{},openJob:null};
 const $=s=>document.querySelector(s);
 function getToken(){try{return localStorage.getItem("co_token")||"";}catch(e){return "";}}
 function setToken(t){try{t?localStorage.setItem("co_token",t):localStorage.removeItem("co_token");}catch(e){}}
@@ -281,7 +287,7 @@ async function refreshEngagements(keepId){
   sel.onchange=()=>selectEngagement(list.find(x=>String(x.id)===sel.value));
 }
 function selectEngagement(e){state.engagement=e;if(e&&e.mode!==state.mode)setMode(e.mode);
-  updateScopeBadge();refreshAudit();renderScopePanel();renderFindings();renderCenter();if(e)ensureWS(e.id);}
+  updateScopeBadge();refreshAudit();renderScopePanel();renderFindings();renderCenter();if(e){ensureWS(e.id);loadJobs(e.id);}}
 function updateScopeBadge(){const b=$("#scopeBadge");const e=state.engagement;
   if(e&&e.has_authorization){b.className="badge ok";b.innerHTML='<span class="dot"></span>scope ✓';}
   else{b.className="badge bad";b.innerHTML='<span class="dot"></span>no scope';}}
@@ -356,47 +362,77 @@ function renderAttackModule(){const b=$("#attackModule");
   b.innerHTML=(state.plugin.attack_detail||[]).map(t=>`<div class="att glass"><span class="tid">${t.id}</span> ${t.name}<div class="tac">${t.tactic}</div></div>`).join("")||'<div class="dim small">No technique mapping.</div>';}
 
 async function launch(){
-  const btn=$("#launchBtn");btn.disabled=true;btn.textContent="Running…";
-  const res=$("#runResult");
+  const btn=$("#launchBtn");btn.disabled=true;btn.textContent="Launching…";
   ensureWS(state.engagement.id);
   const r=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:state.plugin.slug,params:state.params});
-  if(r.detail){res.innerHTML=`<div class="finding glass" style="border-left-color:var(--crit)">Error: ${esc(r.detail)}</div>`;btn.disabled=false;btn.textContent="▶ Launch";toast(r.detail,"err");return;}
-  if(r.status==="blocked"){finalizeRun(r.id,r);return;}
-  // background: show a live streaming panel, WS (or poll fallback) will finalize
-  state.currentRun=r.id;
-  res.innerHTML=`<h3 style="margin-bottom:8px">Running <span class="pill">live</span> <span class="dim small">#${r.id}</span></h3>
-    ${r.command?`<div class="mono-block">$ ${esc(r.command||state.plugin.name)}</div>`:""}
-    <div style="margin-top:8px"><div class="rb-h" style="margin:0 0 5px">Live output</div>
-      <pre id="liveLog" class="mono-block" style="min-height:60px"></pre></div>`;
+  btn.disabled=false;btn.textContent="▶ Launch";
+  if(r.detail){toast(r.detail,"err");return;}
+  if(r.status==="blocked"){const j=upsertJob(r.id,{plugin:r.plugin||state.plugin.slug,status:"blocked",error:r.error});state.finalized.add(r.id);renderJobs();toast("Blocked: "+(r.error||"").split(":")[0],"err");openJob(r.id);refreshAudit();return;}
+  const j=upsertJob(r.id,{plugin:r.plugin||state.plugin.slug,status:"pending"});j.lines.push("[queued #"+r.id+"]");
+  renderJobs();openJob(r.id);toast("Scan #"+r.id+" started","info");
   pollFallback(r.id,0);
 }
-function appendLive(runId,line){
-  if(runId!==state.currentRun)return;const el=$("#liveLog");if(!el)return;
-  el.textContent+=(el.textContent?"\n":"")+line;el.scrollTop=el.scrollHeight;}
-async function finalizeRun(runId,known){
-  if(state.finalized.has(runId))return;state.finalized.add(runId);
-  const r=known||await api(`/api/engagements/${state.engagement.id}/runs/${runId}`);
-  refreshAudit();renderFindings();
-  const btn=$("#launchBtn");if(btn){btn.disabled=false;btn.textContent="▶ Launch again";}
-  if(runId!==state.currentRun && !(known&&known.status==="blocked"))return;
-  const res=$("#runResult");if(!res)return;
-  const blocked=r.status==="blocked";const sim=r.parsed&&r.parsed._simulated;
-  res.innerHTML=`<h3 style="margin-bottom:8px">Result — <span style="color:${blocked||r.status==='failed'?'var(--crit)':'#065f46'}">${r.status}</span> ${sim?'<span class="pill">simulated</span>':''}</h3>
-    ${blocked?`<div class="finding glass" style="border-left-color:var(--crit)">⛔ Blocked by scope guard: ${esc(r.error||'')}</div>`:""}
-    ${r.status==='failed'?`<div class="finding glass" style="border-left-color:var(--crit)">⚠ ${esc(r.error||'failed')}</div>`:""}
-    ${r.command?`<div class="mono-block">$ ${esc(r.command)}</div>`:""}
-    ${findingsTable(r.findings||[])}
-    ${r.raw_output?`<details><summary>raw output</summary><div class="mono-block" style="margin-top:6px">${esc((r.raw_output||'').slice(0,3000))}</div></details>`:""}`;
-  toast(blocked?`Blocked: ${(r.error||'').split(':')[0]}`:r.status==='failed'?`Failed: ${r.plugin}`:`${r.plugin}: ${(r.findings||[]).length} finding(s)`,(blocked||r.status==='failed')?"err":"ok");
+
+/* ---- multi-run job tracking ---- */
+function jobIcon(st){return({running:'<span class="spin">◴</span>',pending:'…',completed:'✓',failed:'⚠',blocked:'⛔',cancelled:'■'}[st]||'•');}
+function jobColor(st){return({running:'var(--low)',completed:'#065f46',failed:'var(--crit)',blocked:'var(--crit)',cancelled:'var(--muted)',pending:'var(--muted)'}[st]||'var(--muted)');}
+function upsertJob(id,patch){const j=state.jobs[id]||(state.jobs[id]={id,plugin:'',status:'pending',lines:[],simulated:false,findings:null,error:''});Object.assign(j,patch);return j;}
+function isActive(st){return st==='running'||st==='pending';}
+function renderJobs(){
+  const box=$("#jobsPanel");if(!box)return;
+  const all=Object.values(state.jobs).sort((a,b)=>b.id-a.id);
+  const active=all.filter(j=>isActive(j.status));
+  const recent=all.filter(j=>!isActive(j.status)).slice(0,6);
+  const row=j=>`<div class="jobrow glass" onclick="openJob(${j.id})">
+     <span style="color:${jobColor(j.status)}">${jobIcon(j.status)}</span>
+     <span class="jobname">${esc(j.plugin)} <span class="dim tiny">#${j.id}</span></span>
+     ${isActive(j.status)?`<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();cancelRun(${j.id})">Stop</button>`:`<span class="tiny" style="color:${jobColor(j.status)}">${j.status}</span>`}</div>`;
+  box.innerHTML=(active.length?active.map(row).join(''):'<div class="dim small">No active scans.</div>')
+    +(recent.length?`<div class="tiny dim" style="margin:9px 2px 4px">Recent</div>`+recent.map(row).join(''):'');
 }
-// Safety net if the WebSocket is unavailable: poll until terminal.
-async function pollFallback(runId,tries){
-  if(state.finalized.has(runId)||tries>40)return;
+function openJob(id){state.openJob=id;const j=state.jobs[id];if(!j)return;$("#jobTitle").textContent=`${j.plugin} · #${id}`;renderJobBody(j);jobDlg.showModal();}
+function renderJobBody(j){
+  if(state.openJob!==j.id)return;const body=$("#jobBody");if(!body)return;
+  const stop=isActive(j.status)?`<button class="btn btn-danger" onclick="cancelRun(${j.id})">■ Stop scan</button>`:'';
+  body.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <span class="badge" style="color:${jobColor(j.status)}">${jobIcon(j.status)} ${j.status}${j.simulated?' · simulated':''}</span>${stop}</div>
+    <div class="rb-h" style="margin:0 0 5px">Live output</div>
+    <pre id="jobLog" class="mono-block" style="max-height:300px;min-height:60px">${esc(j.lines.join('\n'))}</pre>
+    ${j.error?`<div class="rem" style="color:#b00020;background:rgba(176,0,32,.08);margin-top:8px">${esc(j.error)}</div>`:''}
+    ${j.findings&&j.findings.length?`<div style="margin-top:10px"><b>${j.findings.length} finding(s)</b>${findingsTable(j.findings)}</div>`:(j.status==='completed'?'<div class="dim small" style="margin-top:8px">No findings.</div>':'')}`;
+  const log=$("#jobLog");if(log)log.scrollTop=log.scrollHeight;
+}
+async function cancelRun(id){
+  const r=await post(`/api/engagements/${state.engagement.id}/runs/${id}/cancel`,{});
+  if(r.ok){toast(`Stopping scan #${id}…`,"info");upsertJob(id,{status:r.status==='cancelled'?'cancelled':'running'});renderJobs();}
+  else toast(`#${id}: ${r.message||r.status}`,"err");
+}
+function appendLive(runId,line){const j=state.jobs[runId];if(j){j.lines.push(line);if(j.lines.length>1400)j.lines.splice(0,j.lines.length-1400);}
+  if(state.openJob===runId){const log=$("#jobLog");if(log){log.textContent+=(log.textContent?"\n":"")+line;log.scrollTop=log.scrollHeight;}}}
+async function finalizeJob(id,ev){
+  if(state.finalized.has(id)){if(state.openJob===id)renderJobBody(state.jobs[id]);return;}
+  state.finalized.add(id);
+  const r=await api(`/api/engagements/${state.engagement.id}/runs/${id}`);
+  const j=upsertJob(id,{plugin:r.plugin,status:r.status,simulated:(r.parsed&&r.parsed._simulated),error:r.error,findings:r.findings||[]});
+  renderJobs();renderJobBody(j);refreshAudit();renderFindings();
+  if(ev&&ev.type==='done'){const t=r.status==='completed'?`${r.plugin}: ${(r.findings||[]).length} finding(s)`:`${r.plugin}: ${r.status}`;
+    toast(t,r.status==='completed'?'ok':(r.status==='cancelled'?'info':'err'));}
+}
+async function pollFallback(id,tries){
+  const cur=(state.jobs[id]||{}).status;
+  if(state.finalized.has(id)||["completed","blocked","failed","cancelled"].includes(cur)||tries>120)return;
   await new Promise(r=>setTimeout(r,1500));
-  if(state.finalized.has(runId))return;
-  const r=await api(`/api/engagements/${state.engagement.id}/runs/${runId}`);
-  if(["completed","blocked","failed"].includes(r.status)){finalizeRun(runId,r);}
-  else pollFallback(runId,tries+1);
+  if(state.finalized.has(id))return;
+  const r=await api(`/api/engagements/${state.engagement.id}/runs/${id}`);
+  if(["completed","blocked","failed","cancelled"].includes(r.status)){finalizeJob(id,{type:'poll'});}
+  else{upsertJob(id,{status:r.status,plugin:r.plugin});renderJobs();if(state.openJob===id)renderJobBody(state.jobs[id]);pollFallback(id,tries+1);}
+}
+async function loadJobs(eid){
+  state.jobs={};state.finalized=new Set();state.openJob=null;
+  const runs=await api(`/api/engagements/${eid}/runs`);
+  (runs||[]).slice(0,14).forEach(r=>{upsertJob(r.id,{plugin:r.plugin,status:r.status,simulated:(r.parsed&&r.parsed._simulated),error:r.error,findings:r.findings||[]});
+    if(["completed","blocked","failed","cancelled"].includes(r.status))state.finalized.add(r.id);else pollFallback(r.id,0);});
+  renderJobs();
 }
 function ensureWS(eid){
   if(state.ws && state.ws._eid===eid && state.ws.readyState<=1)return;
@@ -409,10 +445,11 @@ function ensureWS(eid){
   state.ws=ws;
 }
 function handleEvent(e){
-  if(e.type==="line"){appendLive(e.run_id,e.line);}
-  else if(e.type==="status"&&e.status==="running"){appendLive(e.run_id,"[started] "+(e.command||e.plugin));}
-  else if(e.type==="done"){finalizeRun(e.run_id);}
+  if(e.type==="status"&&e.status==="running"){const j=upsertJob(e.run_id,{plugin:e.plugin,status:"running"});j.lines.push("[started] "+(e.command||e.plugin||""));renderJobs();if(state.openJob===e.run_id)renderJobBody(j);}
+  else if(e.type==="line"){appendLive(e.run_id,e.line);}
+  else if(e.type==="done"){upsertJob(e.run_id,{plugin:e.plugin||'',status:e.status,simulated:e.simulated,error:e.error});renderJobs();finalizeJob(e.run_id,e);}
 }
+
 function findingsTable(fs){if(!fs.length)return'<div class="dim small">No findings.</div>';
   return fs.map(f=>`<div class="finding glass" style="border-left-color:${sevColor(f.severity)}">
     <div class="fh"><span class="sevpill" style="background:${sevColor(f.severity)}">${f.severity}</span><b>${esc(f.title)}</b>${f.cvss?`<span class="pill">CVSS ${f.cvss}</span>`:''}</div>
@@ -480,5 +517,10 @@ async function listReports(){const data=await api("/api/reports");
 
 (async function(){setMode("attack");await refreshEngagements();await refreshAudit();})();
 </script>
+<dialog id="jobDlg"><div class="glass-strong dlg"><h3 id="jobTitle">Scan</h3>
+  <div id="jobBody" style="margin-top:6px"></div>
+  <div class="nav"><button class="btn btn-ghost" onclick="jobDlg.close()">Close</button></div>
+</div></dialog>
+
 </body>
 </html>

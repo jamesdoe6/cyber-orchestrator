@@ -116,11 +116,12 @@ class ToolRunner:
             command=" ".join(argv),
         )
 
-    def stream(self, argv: list[str], on_line) -> ExecResult:
+    def stream(self, argv: list[str], on_line, control=None) -> ExecResult:
         """Run argv, invoking on_line(str) for each output line as it arrives.
 
         Lets the UI watch a long scan live. Still argv-only (never a shell) and
-        still bounded by ``timeout``.
+        still bounded by ``timeout``. If ``control`` is given, the live process is
+        registered on it (so it can be killed) and cancellation is honored.
         """
         import time
         lines: list[str] = []
@@ -129,9 +130,15 @@ class ToolRunner:
             argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
         )
+        if control is not None:
+            control.set_proc(proc)
         try:
             assert proc.stdout is not None
             for line in proc.stdout:
+                if control is not None and control.cancelled:
+                    proc.kill()
+                    on_line("[cancelled by operator]")
+                    break
                 if time.monotonic() - start > self.timeout:
                     proc.kill()
                     on_line("[timeout] killed after %ds" % self.timeout)

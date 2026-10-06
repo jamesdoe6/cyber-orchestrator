@@ -19,9 +19,11 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal
 from .events import bus
 from .models import Engagement, Finding, Run, RunStatus
+from . import run_control
 from .plugins import registry
 from .plugins.base import BasePlugin, ExecResult, ToolRunner
 from .security import audit, scope
+from .models import RunStatus as _RS  # noqa: F401 (alias kept for clarity)
 
 _MAX_STR = 2048
 _MAX_TEXTAREA = 8192
@@ -97,8 +99,19 @@ def execute_run(run_id: int, actor: str, timeout: int = 1800) -> None:
         run = db.get(Run, run_id)
         if run is None or run.status != RunStatus.pending:
             return
-        plugin = registry.get(run.plugin)
+        control = run_control.get_or_create(run_id)
         eid = run.engagement_id
+        if control.cancelled:
+            run.status = RunStatus.cancelled
+            run.error = "cancelled before start"
+            run.finished_at = datetime.now(timezone.utc)
+            db.commit()
+            audit.record(db, action="run.cancel", actor=actor, engagement_id=eid,
+                         detail={"run_id": run_id, "phase": "queued"})
+            bus.publish(eid, {"type": "done", "run_id": run_id, "plugin": run.plugin,
+                              "status": "cancelled", "error": run.error, "findings": 0})
+            return
+        plugin = registry.get(run.plugin)
         params = dict(run.params or {})
 
         argv = plugin.build_argv(params) if plugin.meta.binary else None
@@ -130,13 +143,26 @@ def execute_run(run_id: int, actor: str, timeout: int = 1800) -> None:
             for ln in (result.raw_output or "").splitlines()[:_MAX_STREAM_LINES]:
                 bus.publish(eid, {"type": "line", "run_id": run_id, "line": ln})
         elif ToolRunner.available(plugin.meta.binary):
-            result = runner.stream(argv, on_line)
+            result = runner.stream(argv, on_line, control=control)
         else:
             sim = plugin.simulate(params)
             for ln in sim.splitlines():
                 on_line(ln)
             result = ExecResult(raw_output=sim, exit_code=0, command=run.command, simulated=True)
 
+        if control.cancelled:
+            raw = result.raw_output or ""
+            run.raw_output = raw if len(raw) <= _MAX_RAW else raw[:_MAX_RAW] + "\n...[truncated]"
+            run.exit_code = result.exit_code
+            run.status = RunStatus.cancelled
+            run.error = "cancelled by operator"
+            run.finished_at = datetime.now(timezone.utc)
+            db.commit()
+            audit.record(db, action="run.cancel", actor=actor, engagement_id=eid,
+                         detail={"run_id": run_id, "phase": "running"})
+            bus.publish(eid, {"type": "done", "run_id": run_id, "plugin": run.plugin,
+                              "status": "cancelled", "error": run.error, "findings": 0})
+            return
         parsed = plugin.parse(result.raw_output, params)
         drafts = plugin.findings(parsed, params)
 
@@ -171,6 +197,7 @@ def execute_run(run_id: int, actor: str, timeout: int = 1800) -> None:
             bus.publish(run.engagement_id, {"type": "done", "run_id": run_id, "plugin": run.plugin,
                                             "status": "failed", "error": run.error, "findings": 0})
     finally:
+        run_control.remove(run_id)
         db.close()
 
 

@@ -4,9 +4,13 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
 
-from .. import orchestrator, runner_service
+from datetime import datetime, timezone
+
+from .. import orchestrator, run_control, runner_service
 from ..database import get_db
+from ..events import bus
 from ..models import Engagement, Run, RunStatus
+from ..security import audit
 from ..plugins import registry
 from ..schemas import RunCreate, RunOut
 
@@ -35,6 +39,35 @@ def launch_run(eid: int, body: RunCreate, wait: bool = False, db: Session = Depe
     if run.status == RunStatus.pending:
         runner_service.submit(orchestrator.execute_run, run.id, e.operator)
     return run
+
+
+@router.post("/{run_id}/cancel")
+def cancel_run(eid: int, run_id: int, db: Session = Depends(get_db)):
+    """Stop a running (or queued) scan. Kills the subprocess and marks it cancelled."""
+    run = db.get(Run, run_id)
+    if not run or run.engagement_id != eid:
+        raise HTTPException(404, "run not found")
+    if run.status in (RunStatus.completed, RunStatus.failed, RunStatus.blocked, RunStatus.cancelled):
+        return {"ok": False, "status": run.status.value, "message": "run already finished"}
+
+    # Signal cancellation (kills the live process if running).
+    run_control.cancel(run_id)
+    # Atomically cancel it if still queued; the worker's guard then skips it.
+    updated = (db.query(Run)
+               .filter(Run.id == run_id, Run.status == RunStatus.pending)
+               .update({Run.status: RunStatus.cancelled, Run.error: "cancelled by operator",
+                        Run.finished_at: datetime.now(timezone.utc)}, synchronize_session=False))
+    db.commit()
+    if updated:
+        audit.record(db, action="run.cancel", actor=run.engagement.operator, engagement_id=eid,
+                     detail={"run_id": run_id, "phase": "queued"})
+        bus.publish(eid, {"type": "done", "run_id": run_id, "plugin": run.plugin,
+                          "status": "cancelled", "error": "cancelled by operator", "findings": 0})
+        return {"ok": True, "status": "cancelled"}
+    # It was running: the kill signal will stop it; the worker finalizes it.
+    audit.record(db, action="run.cancel.request", actor=run.engagement.operator, engagement_id=eid,
+                 detail={"run_id": run_id, "phase": "running"})
+    return {"ok": True, "status": "cancelling"}
 
 
 @router.get("", response_model=list[RunOut])
