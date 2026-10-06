@@ -15,6 +15,14 @@ It *wraps* the mature pentest / OSINT / threat-defense toolchain (nmap, nuclei, 
 
 ---
 
+## 🎨 Design & interactivity
+
+The UI uses the **Liquid Glass** design system (luminous aurora background, translucent glass panes with chromatic-edge refraction, iOS-style spring motion, Inter + IBM Plex Mono). It is **interactive**: a per-engagement **dashboard** (KPIs + recent findings), **toasts**, animated wizard progress, live severity tallies, and a scope panel.
+
+**Manage engagements & scope:** you can now **delete an engagement** (🗑 in the top bar) and **revoke a scope** (Scope panel → *Revoke scope*). Both are confirmed and audited — the immutable, hash-chained **audit log is never erased**, only the live data is removed.
+
+**Reports** are detailed and consulting-grade: cover with overall **risk level**, KPI tiles, severity **donut** + bars, **MITRE ATT&CK tactic coverage**, findings grouped by severity with **evidence + remediation**, per-action technical detail (command, duration, parsed result, raw output), and the verified **audit trail**.
+
 ## 📑 Table of contents
 
 1. [What it does](#-what-it-does)

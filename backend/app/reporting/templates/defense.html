@@ -1,27 +1,23 @@
 {% extends "_base.html" %}
 {% block doctitle %}Defensive Review — {{ engagement.name }}{% endblock %}
-{% block accent %}#0b5e8a{% endblock %}
-{% block accent2 %}#1f9d6b{% endblock %}
-{% block modelabel %}Defensive / Blue{% endblock %}
-
-{% block findhead %}<th>Remediation</th>{% endblock %}
-{% block findrow %}<td style="color:var(--muted)">{{ f.remediation }}</td>{% endblock %}
+{% block accent %}#0b5fbf{% endblock %}
+{% block accent2 %}#065f46{% endblock %}
+{% block modelabel %}Defensive · Blue Team{% endblock %}
+{% block auditnum %}7{% endblock %}
+{% block methnum %}8{% endblock %}
+{% block methodology %}This defensive review was performed with the Cyber Orchestrator platform, correlating host, log and threat-intelligence sources against detection and hardening baselines, with automatic MITRE ATT&CK mapping of covered techniques. All analysis was passive/local and recorded in an immutable audit log.{% endblock %}
 
 {% block remediation %}
-<h2>Prioritized remediation plan</h2>
-<table>
-  <thead><tr><th>#</th><th>Severity</th><th>Finding</th><th>Recommended action</th></tr></thead>
-  <tbody>
-  {% for f in findings if f.remediation %}
-    <tr>
-      <td>{{ loop.index }}</td>
-      <td><span class="sev" style="background:{{ sev_color[f.severity.value] }}">{{ f.severity.value }}</span></td>
-      <td>{{ f.title }}</td>
-      <td>{{ f.remediation }}</td>
-    </tr>
-  {% else %}
-    <tr><td colspan="4" style="color:var(--muted)">No remediation items.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<h2><span class="ic">6</span> Prioritized remediation plan</h2>
+<p class="muted" style="font-size:10px">Actionable items ordered by severity. Address critical/high first.</p>
+<table><thead><tr><th style="width:26px">#</th><th style="width:70px">Severity</th><th>Finding</th><th>Recommended action</th></tr></thead><tbody>
+{% set ns = namespace(i=0) %}
+{% for g in groups %}{% for f in g['items'] %}{% if f.remediation %}{% set ns.i = ns.i + 1 %}
+<tr><td class="mono">{{ ns.i }}</td>
+  <td><span class="sev" style="background:{{ f.sev_color }}">{{ f.severity }}</span></td>
+  <td>{{ f.title }}{% if f.asset %}<br><span class="muted mono" style="font-size:9px">{{ f.asset }}</span>{% endif %}</td>
+  <td>{{ f.remediation }}</td></tr>
+{% endif %}{% endfor %}{% endfor %}
+{% if ns.i == 0 %}<tr><td colspan="4" class="muted">No remediation items.</td></tr>{% endif %}
+</tbody></table>
 {% endblock %}

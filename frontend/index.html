@@ -4,331 +4,418 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cyber Orchestrator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2a323d; --ink:#e6edf3;
-    --muted:#8b98a5; --accent:#e24a00; --accent2:#b00020; --ok:#2ea043; --warn:#d79f00;
-  }
-  body.mode-defense{ --accent:#1f9d6b; --accent2:#0b5e8a; }
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);
-       display:flex;flex-direction:column;height:100vh;overflow:hidden;}
-  a{color:var(--accent);}
-  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);
-         background:var(--panel);}
-  header .logo{font-weight:800;letter-spacing:1px;}
-  header .logo b{color:var(--accent);}
-  .spacer{flex:1;}
-  .badge{font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);}
-  .badge.ok{color:var(--ok);border-color:var(--ok);}
-  .badge.bad{color:#ff6b6b;border-color:#ff6b6b;}
-  select,input,textarea,button{font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);
-       border-radius:6px;padding:7px 10px;}
-  button{cursor:pointer;}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
-  button.primary:disabled{opacity:.4;cursor:not-allowed;}
-  button.ghost{background:transparent;}
-  main{flex:1;display:grid;grid-template-columns:230px 1fr 300px;overflow:hidden;}
-  .col{overflow:auto;padding:14px;}
-  .sidebar{border-right:1px solid var(--line);background:var(--panel);}
-  .rightbar{border-left:1px solid var(--line);background:var(--panel);}
-  .cat{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 6px;}
-  .plugin{padding:9px 10px;border-radius:7px;border:1px solid transparent;margin-bottom:5px;cursor:pointer;}
-  .plugin:hover{background:var(--panel2);}
-  .plugin.active{background:var(--panel2);border-color:var(--accent);}
-  .plugin .nm{font-weight:600;font-size:14px;}
-  .plugin .pv{font-size:11px;color:var(--muted);}
-  h2{margin:0 0 4px;font-size:20px;}
-  .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
-  .progress{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:10px 0 18px;}
-  .progress > i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s;}
-  .step{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:16px;}
-  .step h3{margin:0 0 4px;}
-  .step .help{color:var(--muted);font-size:13px;margin-bottom:12px;}
-  .step .expect{font-size:12px;color:var(--warn);margin-top:10px;}
-  .field{margin:12px 0;}
-  .field label{display:block;font-size:13px;margin-bottom:5px;}
-  .field input,.field select,.field textarea{width:100%;}
-  .field .fhelp{font-size:11px;color:var(--muted);margin-top:4px;}
-  .nav{display:flex;gap:10px;margin-top:16px;}
-  .steps-dots{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
-  .dot{font-size:11px;padding:3px 9px;border-radius:12px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);}
-  .dot.done{color:var(--ok);border-color:var(--ok);}
-  .dot.current{color:#fff;background:var(--accent);border-color:var(--accent);}
-  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}
-  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
-  th{color:var(--muted);font-size:11px;text-transform:uppercase;}
-  .sev{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;color:#fff;text-transform:uppercase;}
-  .mono{font-family:Consolas,monospace;font-size:11px;background:#0b0e13;border:1px solid var(--line);
-        border-radius:6px;padding:8px;white-space:pre-wrap;max-height:200px;overflow:auto;}
-  .att{border:1px solid var(--line);border-radius:7px;padding:10px;margin-bottom:8px;background:var(--panel2);}
-  .att .tid{color:var(--accent);font-weight:700;}
-  .att .tac{font-size:11px;color:var(--muted);}
-  footer{display:flex;border-top:1px solid var(--line);background:var(--panel);}
-  footer button{flex:1;border:0;border-radius:0;padding:14px;font-size:15px;font-weight:700;background:var(--panel);
-    color:var(--muted);border-top:3px solid transparent;}
-  footer button.on{color:#fff;}
-  footer button#tab-attack.on{background:linear-gradient(0deg,rgba(226,74,0,.18),transparent);border-top-color:#e24a00;color:#ff7a3c;}
-  footer button#tab-defense.on{background:linear-gradient(0deg,rgba(31,157,107,.18),transparent);border-top-color:#1f9d6b;color:#4fd3a0;}
-  dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(560px,92vw);padding:0;}
-  dialog header{border-radius:12px 12px 0 0;}
-  dialog .body{padding:16px;max-height:70vh;overflow:auto;}
-  .row{display:flex;gap:8px;align-items:center;}
-  .target-row{display:grid;grid-template-columns:120px 1fr auto;gap:8px;margin-bottom:6px;}
-  .muted{color:var(--muted);}
-  .pill{display:inline-block;font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:10px;margin:2px;}
+/* ===== Liquid Glass design system (ported from the portfolio) ===== */
+:root{
+  color-scheme:light;
+  --ink-950:#dcebfa; --ink-100:#0a2540; --ink-200:#1e3a5f; --ink-300:#3d5a7d; --muted:#5a7184;
+  --r-sm:12px; --r-md:18px; --r-lg:24px; --gap:18px;
+  --ease-spring:cubic-bezier(0.34,1.4,0.64,1); --ease-smooth:cubic-bezier(0.32,0.72,0,1);
+  --font:-apple-system,BlinkMacSystemFont,'Inter',ui-sans-serif,system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --accent:#c2410c; --accent-2:#be185d; --accent-fill:#fb923c;
+  --line:rgba(10,37,64,.1);
+  --crit:#b00020; --high:#e24a00; --med:#b8860b; --low:#0b5fbf; --info:#5a7184;
+}
+body.mode-attack{ --accent:#c2410c; --accent-2:#be185d; --accent-fill:#fb923c; }
+body.mode-defense{ --accent:#0b5fbf; --accent-2:#065f46; --accent-fill:#22d3ee; }
+*,*::before,*::after{box-sizing:border-box;}
+html{-webkit-font-smoothing:antialiased;}
+body{margin:0;min-height:100vh;font-family:var(--font);font-size:14px;line-height:1.55;color:var(--ink-100);
+  background:var(--ink-950);letter-spacing:-0.011em;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:-0.02em;line-height:1.2;}
+a{color:var(--accent);text-decoration:none;} a:hover{text-decoration:underline;}
+button,input,select,textarea{font:inherit;color:inherit;}
+.mono{font-family:var(--mono);} .muted{color:var(--ink-200);} .dim{color:var(--ink-300);}
+.small{font-size:12.5px;} .tiny{font-size:11.5px;}
+::selection{background:rgba(11,95,191,.22);}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:rgba(10,37,64,.2);border-radius:999px;border:2px solid transparent;background-clip:content-box;}
+
+/* Aurora + grid */
+.aurora{position:fixed;inset:0;z-index:-20;pointer-events:none;background-color:var(--ink-950);
+  background-image:
+   radial-gradient(circle 34rem at 4% 14%,rgba(56,189,248,.5),transparent 56%),
+   radial-gradient(circle 30rem at 97% 20%,rgba(167,139,250,.46),transparent 56%),
+   radial-gradient(circle 32rem at 10% 66%,rgba(255,203,176,.55),transparent 56%),
+   radial-gradient(circle 28rem at 88% 72%,rgba(45,212,191,.42),transparent 54%),
+   radial-gradient(circle 24rem at 64% 4%,rgba(96,165,250,.46),transparent 54%),
+   radial-gradient(ellipse 130% 100% at 50% 0%,#f4faff 0%,#dcebfa 45%,#bdd9f4 100%);}
+.grid-overlay{position:fixed;inset:0;z-index:-10;pointer-events:none;opacity:.05;
+  background-image:linear-gradient(to right,#0a2540 1px,transparent 1px),linear-gradient(to bottom,#0a2540 1px,transparent 1px);
+  background-size:54px 54px;
+  mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,black 30%,transparent 100%);
+  -webkit-mask-image:radial-gradient(ellipse 90% 70% at 50% 0%,black 30%,transparent 100%);}
+
+/* Glass material */
+.glass{position:relative;background-image:
+   linear-gradient(158deg,rgba(255,255,255,.6) 0%,rgba(255,255,255,.14) 26%,rgba(255,255,255,0) 46%),
+   linear-gradient(158deg,rgba(255,255,255,.78) 0%,rgba(255,255,255,.55) 42%,rgba(255,255,255,.62) 100%);
+  backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);
+  border:1px solid rgba(255,255,255,.55);border-radius:var(--r-lg);
+  box-shadow:inset 1.5px 1.5px 0 -0.5px rgba(125,211,252,.85),inset -1.5px -1.5px 0 -0.5px rgba(196,181,253,.8),
+   inset 0 1px 1px 0 rgba(255,255,255,.95),inset 0 -8px 18px -12px rgba(120,170,230,.6),
+   0 12px 34px -14px rgba(12,47,92,.3),0 2px 8px -4px rgba(12,47,92,.16);
+  transform:translate3d(0,0,0);isolation:isolate;
+  transition:transform .5s var(--ease-spring),box-shadow .45s var(--ease-smooth),border-color .45s var(--ease-smooth);}
+.glass-strong{background-image:linear-gradient(158deg,rgba(255,255,255,.92) 0%,rgba(255,255,255,.76) 55%,rgba(255,255,255,.84) 100%);
+  backdrop-filter:blur(34px) saturate(200%);-webkit-backdrop-filter:blur(34px) saturate(200%);}
+.glass-interactive{cursor:pointer;}
+.glass-interactive:hover{transform:translate3d(0,-3px,0);border-color:rgba(255,255,255,.8);
+  box-shadow:inset 2px 2px 0 -0.5px rgba(103,232,249,1),inset -2px -2px 0 -0.5px rgba(196,181,253,.95),
+   inset 0 1px 1px 0 rgba(255,255,255,1),0 24px 50px -16px rgba(12,47,92,.34);}
+@supports not ((backdrop-filter:blur(2px)) or (-webkit-backdrop-filter:blur(2px))){.glass,.glass-strong{background-color:rgba(255,255,255,.93);}}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(255,255,255,.6);background-image:linear-gradient(158deg,rgba(255,255,255,.85),rgba(255,255,255,.62));
+  color:var(--ink-100);font-size:13px;font-weight:550;white-space:nowrap;
+  box-shadow:inset 0 1px 1px 0 rgba(255,255,255,.95),0 8px 18px -10px rgba(12,47,92,.3);
+  transition:transform .3s var(--ease-spring),filter .3s var(--ease-smooth);}
+.btn:hover:not(:disabled){transform:translateY(-1px) scale(1.03);filter:brightness(1.04);}
+.btn:active:not(:disabled){transform:scale(.97);}
+.btn:disabled{opacity:.42;cursor:not-allowed;}
+.btn-primary{color:#fff;border-color:transparent;background-image:linear-gradient(140deg,var(--accent),var(--accent-2));
+  box-shadow:0 10px 24px -10px var(--accent);}
+.btn-danger{color:#fff;border-color:transparent;background-image:linear-gradient(140deg,#be185d,#b00020);}
+.btn-ghost{background-image:none;background:transparent;box-shadow:none;border-color:var(--line);}
+.btn-sm{padding:5px 11px;font-size:12px;}
+.icbtn{width:34px;height:34px;padding:0;justify-content:center;border-radius:11px;}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;gap:10px;padding:11px 18px;z-index:40;flex:none;
+  background:rgba(244,250,255,.72);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid rgba(255,255,255,.7);box-shadow:0 8px 24px -20px rgba(12,47,92,.5);}
+.brand{display:flex;align-items:center;gap:10px;margin-right:6px;}
+.brand-mark{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:18px;
+  background:linear-gradient(140deg,#fff,#dbeafe 55%,#ede9fe);border:1px solid rgba(255,255,255,.85);
+  box-shadow:inset 0 1px 1px 0 rgba(255,255,255,1),0 6px 16px -8px rgba(12,47,92,.4);}
+.brand-name{font-weight:700;letter-spacing:-.03em;font-size:15px;}
+.brand-name b{background:linear-gradient(100deg,#0a2540,#0b5fbf 50%,#4c1d95);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.spacer{flex:1;}
+.sel{appearance:none;padding:7px 30px 7px 13px;border-radius:999px;border:1px solid var(--line);
+  background:rgba(255,255,255,.7) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%235a7184' stroke-width='2'%3E%3Cpath d='M3 5l3 3 3-3'/%3E%3C/svg%3E") no-repeat right 11px center;
+  font-size:13px;max-width:280px;cursor:pointer;}
+.badge{font-size:11.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.6);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+.badge.ok{color:#065f46;border-color:rgba(6,95,70,.35);background:rgba(6,95,70,.08);}
+.badge.bad{color:#b00020;border-color:rgba(176,0,32,.35);background:rgba(176,0,32,.07);}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;}
+
+/* Layout */
+main{flex:1;display:grid;grid-template-columns:248px 1fr 310px;gap:14px;padding:14px;overflow:hidden;}
+.col{overflow:auto;}
+.sidebar{padding:12px;}
+.cat{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);margin:14px 6px 7px;font-weight:650;}
+.cat:first-child{margin-top:4px;}
+.pmod{padding:10px 12px;border-radius:var(--r-sm);margin-bottom:6px;cursor:pointer;border:1px solid transparent;
+  transition:background .25s var(--ease-smooth),transform .3s var(--ease-spring);}
+.pmod:hover{background:rgba(255,255,255,.55);transform:translateX(2px);}
+.pmod.active{background:rgba(255,255,255,.8);border-color:rgba(255,255,255,.9);
+  box-shadow:inset 2px 0 0 var(--accent),0 8px 18px -12px rgba(12,47,92,.4);}
+.pmod .nm{font-weight:600;font-size:13.5px;}
+.pmod .pv{font-size:11px;margin-top:2px;}
+.priv{display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:600;}
+.priv.passive{color:#065f46;background:rgba(6,95,70,.1);} .priv.active{color:#92400e;background:rgba(146,64,14,.12);}
+.priv.offensive{color:#b00020;background:rgba(176,0,32,.1);}
+
+.center{padding:22px 26px;}
+.center h2{font-size:22px;} .sub{color:var(--ink-200);font-size:14px;margin:4px 0 16px;}
+.rightbar{padding:16px;}
+.rb-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);margin:18px 0 8px;font-weight:650;}
+.rb-h:first-child{margin-top:0;}
+
+/* Wizard */
+.dots{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.wd{font-size:11px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.5);border:1px solid var(--line);color:var(--muted);}
+.wd.done{color:#065f46;border-color:rgba(6,95,70,.3);} .wd.cur{color:#fff;background:linear-gradient(140deg,var(--accent),var(--accent-2));border-color:transparent;}
+.progress{height:7px;border-radius:999px;background:rgba(255,255,255,.55);overflow:hidden;margin:0 0 18px;border:1px solid var(--line);}
+.progress>i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent-fill));width:0;transition:width .5s var(--ease-spring);}
+.step{padding:18px 20px;border-radius:var(--r-md);}
+.step h3{font-size:16px;} .step .help{color:var(--ink-200);font-size:13.5px;margin:4px 0 14px;}
+.field{margin:13px 0;} .field label{display:block;font-size:13px;font-weight:550;margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;border-radius:12px;border:1px solid var(--line);
+  background:rgba(255,255,255,.7);transition:border-color .3s,box-shadow .3s;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(11,95,191,.12);}
+.field .fhelp{font-size:11.5px;color:var(--muted);margin-top:5px;}
+.check{display:flex;align-items:center;gap:9px;}.check input{width:auto;}
+.expect{font-size:12px;color:#92400e;background:rgba(251,191,36,.12);border:1px solid rgba(146,64,14,.2);border-radius:10px;padding:7px 11px;margin-top:12px;}
+.nav{display:flex;gap:10px;margin-top:18px;}
+
+/* Dashboard KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin:4px 0 8px;}
+.kpi{padding:16px;border-radius:var(--r-md);text-align:center;}
+.kpi .n{font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--accent);}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:6px;}
+
+/* Findings */
+.res{margin-top:20px;}
+.sevpill{font-size:10px;font-weight:800;padding:2px 8px;border-radius:5px;color:#fff;text-transform:uppercase;letter-spacing:.4px;}
+.finding{padding:13px 15px;border-radius:14px;margin:9px 0;border-left:4px solid var(--info);}
+.finding .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px;}
+.finding .fh b{flex:1;font-size:13.5px;}
+.rem{color:#065f46;font-size:12.5px;margin-top:7px;background:rgba(6,95,70,.08);border-radius:9px;padding:6px 10px;}
+.mono-block{font-family:var(--mono);font-size:11.5px;background:rgba(10,14,20,.92);color:#cfe3f5;border-radius:12px;padding:10px 12px;white-space:pre-wrap;word-break:break-word;max-height:230px;overflow:auto;}
+details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:8px;}
+.pill{display:inline-block;font-size:11px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.5);margin:2px 4px 2px 0;}
+.att{padding:10px 12px;border-radius:12px;margin-bottom:8px;}
+.att .tid{color:var(--accent);font-weight:700;font-family:var(--mono);}
+.att .tac{font-size:11px;color:var(--muted);margin-top:2px;}
+.scopebox{padding:12px;border-radius:12px;font-size:12.5px;}
+.scopebox .trow{font-family:var(--mono);font-size:11.5px;margin:2px 0;}
+
+/* Mode tabs */
+.tabs{display:flex;gap:10px;padding:10px 14px;flex:none;}
+.tab{flex:1;display:flex;align-items:center;justify-content:center;gap:9px;padding:13px;border-radius:16px;cursor:pointer;
+  font-size:15px;font-weight:700;letter-spacing:.02em;border:1px solid transparent;color:var(--muted);
+  background:rgba(255,255,255,.4);transition:all .4s var(--ease-spring);}
+.tab.on#tab-attack{color:#fff;background:linear-gradient(140deg,#c2410c,#be185d);box-shadow:0 12px 28px -12px rgba(194,65,12,.6);}
+.tab.on#tab-defense{color:#fff;background:linear-gradient(140deg,#0b5fbf,#065f46);box-shadow:0 12px 28px -12px rgba(11,95,191,.6);}
+
+/* Dialogs */
+dialog{border:none;padding:0;border-radius:var(--r-lg);width:min(560px,94vw);background:transparent;}
+dialog::backdrop{background:rgba(10,37,64,.32);backdrop-filter:blur(3px);}
+.dlg{padding:22px 24px;}
+.dlg h3{font-size:18px;margin-bottom:4px;}
+.target-row{display:grid;grid-template-columns:120px 1fr 36px;gap:8px;margin-bottom:7px;}
+.repitem{padding:11px 13px;border-radius:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+
+/* Toasts */
+#toasts{position:fixed;bottom:84px;right:18px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+.toast{padding:11px 16px;border-radius:14px;font-size:13px;font-weight:550;color:#fff;min-width:220px;
+  box-shadow:0 14px 34px -12px rgba(12,47,92,.5);animation:slidein .4s var(--ease-spring);}
+.toast.ok{background:linear-gradient(140deg,#065f46,#0b5fbf);}
+.toast.err{background:linear-gradient(140deg,#b00020,#be185d);}
+.toast.info{background:linear-gradient(140deg,#0b5fbf,#4c1d95);}
+@keyframes slidein{from{opacity:0;transform:translateX(30px);}to{opacity:1;transform:translateX(0);}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+@media (max-width:960px){main{grid-template-columns:1fr;grid-template-rows:auto;} .sidebar,.rightbar{max-height:220px;}}
 </style>
 </head>
 <body class="mode-attack">
-<header>
-  <div class="logo">CYBER<b>ORCH</b></div>
-  <span class="muted" style="font-size:12px">authorized testing only</span>
+<div class="aurora"></div><div class="grid-overlay"></div>
+
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">🛡️</div>
+    <div><div class="brand-name">CYBER<b>ORCH</b></div><div class="tiny dim">authorized testing only</div></div></div>
   <div class="spacer"></div>
-  <select id="engagementSel" title="Active engagement"></select>
-  <button class="ghost" id="newEngBtn">+ Engagement</button>
-  <button class="ghost" id="scopeBtn">Scope</button>
-  <span class="badge" id="scopeBadge">no scope</span>
+  <select class="sel" id="engagementSel" title="Active engagement"></select>
+  <button class="btn btn-ghost icbtn" id="delEngBtn" title="Delete engagement">🗑</button>
+  <button class="btn btn-ghost btn-sm" id="newEngBtn">+ Engagement</button>
+  <button class="btn btn-ghost btn-sm" id="scopeBtn">Scope</button>
+  <span class="badge" id="scopeBadge"><span class="dot"></span>no scope</span>
   <span class="badge" id="auditBadge">audit —</span>
-  <button class="ghost" id="reportsBtn">Reports</button>
+  <button class="btn btn-primary btn-sm" id="reportsBtn">Reports</button>
 </header>
 
 <main>
-  <aside class="col sidebar" id="sidebar"><div class="muted">Select or create an engagement.</div></aside>
-
-  <section class="col" id="center">
-    <div class="muted">Pick a module from the left to start the guided assistant.</div>
-  </section>
-
-  <aside class="col rightbar">
-    <div class="cat">MITRE ATT&amp;CK — module</div>
-    <div id="attackModule"><div class="muted">—</div></div>
-    <div class="cat">Findings this engagement</div>
-    <div id="findSummary"><div class="muted">—</div></div>
+  <aside class="col glass sidebar" id="sidebar"><div class="dim small" style="padding:8px">Create an engagement to begin.</div></aside>
+  <section class="col glass-strong glass center" id="center"></section>
+  <aside class="col glass rightbar">
+    <div class="rb-h">Scope</div><div id="scopePanel"><div class="dim small">—</div></div>
+    <div class="rb-h">MITRE ATT&amp;CK — module</div><div id="attackModule"><div class="dim small">—</div></div>
+    <div class="rb-h">Findings this engagement</div><div id="findSummary"><div class="dim small">—</div></div>
   </aside>
 </main>
 
-<footer>
-  <button id="tab-attack" class="on" onclick="setMode('attack')">⚔ ATTACK</button>
-  <button id="tab-defense" onclick="setMode('defense')">🛡 DEFENSE</button>
-</footer>
+<nav class="tabs">
+  <div class="tab glass on" id="tab-attack" onclick="setMode('attack')">⚔ ATTACK</div>
+  <div class="tab glass" id="tab-defense" onclick="setMode('defense')">🛡 DEFENSE</div>
+</nav>
 
-<!-- New engagement dialog -->
-<dialog id="engDlg">
-  <header><strong>New engagement</strong></header>
-  <div class="body">
-    <div class="field"><label>Name</label><input id="engName" placeholder="Q4 external assessment"></div>
-    <div class="field"><label>Operator</label><input id="engOperator" placeholder="your name"></div>
-    <div class="field"><label>Mode</label>
-      <select id="engMode"><option value="attack">Attack</option><option value="defense">Defense</option></select></div>
-    <div class="nav"><button class="primary" onclick="createEngagement()">Create</button>
-      <button class="ghost" onclick="engDlg.close()">Cancel</button></div>
-  </div>
-</dialog>
+<div id="toasts"></div>
 
-<!-- Scope dialog -->
-<dialog id="scopeDlg">
-  <header><strong>Declare authorized perimeter</strong></header>
-  <div class="body">
-    <p class="muted" style="font-size:12px">No active/offensive action can run until an accepted authorization covers the target. This is enforced server-side and written to the immutable audit log.</p>
-    <div class="field"><label>Authorization reference (written mandate)</label><input id="scRef" placeholder="MANDATE-2026-001"></div>
-    <div class="field"><label>Authorizing party</label><input id="scParty" placeholder="Client CISO / signed-off by"></div>
-    <div class="row" style="gap:16px">
-      <div class="field" style="flex:1"><label>Valid from</label><input id="scFrom" type="datetime-local"></div>
-      <div class="field" style="flex:1"><label>Valid until</label><input id="scUntil" type="datetime-local"></div>
-    </div>
-    <div class="field"><label>Targets</label><div id="targets"></div>
-      <button class="ghost" onclick="addTargetRow()">+ add target</button></div>
-    <div class="nav"><button class="primary" onclick="saveScope()">Accept &amp; save</button>
-      <button class="ghost" onclick="scopeDlg.close()">Cancel</button></div>
-  </div>
-</dialog>
+<dialog id="engDlg"><div class="glass-strong dlg"><h3>New engagement</h3>
+  <div class="field"><label>Name</label><input id="engName" placeholder="Q4 external assessment"></div>
+  <div class="field"><label>Operator</label><input id="engOperator" placeholder="your name"></div>
+  <div class="field"><label>Mode</label><select id="engMode"><option value="attack">⚔ Attack</option><option value="defense">🛡 Defense</option></select></div>
+  <div class="nav"><button class="btn btn-primary" onclick="createEngagement()">Create</button><button class="btn btn-ghost" onclick="engDlg.close()">Cancel</button></div>
+</div></dialog>
 
-<!-- Reports dialog -->
-<dialog id="repDlg">
-  <header><strong>Report library</strong></header>
-  <div class="body">
-    <button class="primary" onclick="genReport()">Generate report for current engagement</button>
-    <div id="repList" style="margin-top:12px"></div>
-  </div>
-</dialog>
+<dialog id="scopeDlg"><div class="glass-strong dlg"><h3>Declare authorized perimeter</h3>
+  <p class="small muted">No active/offensive action runs until an accepted authorization covers the target. Enforced server-side + audited.</p>
+  <div class="field"><label>Authorization reference (written mandate)</label><input id="scRef" placeholder="MANDATE-2026-001"></div>
+  <div class="field"><label>Authorizing party</label><input id="scParty" placeholder="Client CISO"></div>
+  <div class="row" style="display:flex;gap:14px"><div class="field" style="flex:1"><label>Valid from</label><input id="scFrom" type="datetime-local"></div>
+    <div class="field" style="flex:1"><label>Valid until</label><input id="scUntil" type="datetime-local"></div></div>
+  <div class="field"><label>Targets</label><div id="targets"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addTargetRow()">+ add target</button></div>
+  <div class="nav"><button class="btn btn-primary" onclick="saveScope()">Accept &amp; save</button><button class="btn btn-ghost" onclick="scopeDlg.close()">Cancel</button></div>
+</div></dialog>
+
+<dialog id="repDlg"><div class="glass-strong dlg"><h3>Report library</h3>
+  <button class="btn btn-primary" onclick="genReport()">Generate report for current engagement</button>
+  <div id="repList" style="margin-top:14px"></div>
+  <div class="nav"><button class="btn btn-ghost" onclick="repDlg.close()">Close</button></div>
+</div></dialog>
 
 <script>
-const API = "";
-let state = { mode:"attack", engagement:null, plugins:[], plugin:null, step:0, params:{} };
+const API="";
+let state={mode:"attack",engagement:null,plugins:[],plugin:null,step:0,params:{}};
+const $=s=>document.querySelector(s);
+async function api(p,o){const r=await fetch(API+p,o);return r.json();}
+async function post(p,b){return api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});}
+async function del(p){return api(p,{method:"DELETE"});}
+function esc(s){return(s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function sevColor(s){return{critical:"var(--crit)",high:"var(--high)",medium:"var(--med)",low:"var(--low)",info:"var(--info)"}[s]||"var(--info)";}
+function toast(msg,type="ok"){const t=document.createElement("div");t.className="toast "+type;t.textContent=msg;$("#toasts").appendChild(t);setTimeout(()=>t.remove(),3600);}
 
-const $ = s => document.querySelector(s);
-async function api(path, opts){ const r = await fetch(API+path, opts); return r.json(); }
-async function post(path, body){ return api(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); }
+function setMode(m){state.mode=m;state.plugin=null;state.step=0;state.params={};document.body.className="mode-"+m;
+  $("#tab-attack").classList.toggle("on",m==="attack");$("#tab-defense").classList.toggle("on",m==="defense");
+  loadPlugins();renderCenter();renderAttackModule();}
 
-function setMode(m){
-  state.mode=m; state.plugin=null; state.step=0; state.params={};
-  document.body.className = "mode-"+m;
-  $("#tab-attack").classList.toggle("on", m==="attack");
-  $("#tab-defense").classList.toggle("on", m==="defense");
-  loadPlugins();
-  renderCenter();
-  renderAttackModule();
+async function refreshEngagements(keepId){
+  const list=await api("/api/engagements");const sel=$("#engagementSel");
+  const cur=keepId||sel.value;sel.innerHTML="";
+  if(!list.length){sel.innerHTML='<option>— no engagement —</option>';state.engagement=null;renderCenter();renderScopePanel();renderFindings();return;}
+  list.forEach(e=>{const o=document.createElement("option");o.value=e.id;o.textContent=`#${e.id} ${e.name} · ${e.mode}`;sel.appendChild(o);});
+  const pick=list.find(e=>String(e.id)===String(cur))||list[0];sel.value=pick.id;selectEngagement(pick);
+  sel.onchange=()=>selectEngagement(list.find(x=>String(x.id)===sel.value));
 }
-
-async function refreshEngagements(){
-  const list = await api("/api/engagements");
-  const sel = $("#engagementSel"); sel.innerHTML="";
-  list.forEach(e=>{ const o=document.createElement("option"); o.value=e.id;
-    o.textContent=`#${e.id} ${e.name} [${e.mode}]`; o.dataset.mode=e.mode; sel.appendChild(o); });
-  if(list.length){ selectEngagement(list.find(e=>e.id==sel.value)||list[0]); }
-  sel.onchange=()=>{ const e=list.find(x=>x.id==sel.value); selectEngagement(e); };
-}
-function selectEngagement(e){
-  state.engagement=e;
-  if(e && e.mode!==state.mode) setMode(e.mode);
-  updateScopeBadge(); refreshAudit(); renderFindings();
-}
-function updateScopeBadge(){
-  const b=$("#scopeBadge"); const e=state.engagement;
-  if(e && e.has_authorization){ b.textContent="scope ✓"; b.className="badge ok"; }
-  else { b.textContent="no scope"; b.className="badge bad"; }
-}
-async function refreshAudit(){
-  const v=await api("/api/audit/verify"); const b=$("#auditBadge");
-  b.textContent = v.valid?`audit ✓ (${v.verified})`:"audit BROKEN";
-  b.className = "badge "+(v.valid?"ok":"bad");
-}
+function selectEngagement(e){state.engagement=e;if(e&&e.mode!==state.mode)setMode(e.mode);
+  updateScopeBadge();refreshAudit();renderScopePanel();renderFindings();renderCenter();}
+function updateScopeBadge(){const b=$("#scopeBadge");const e=state.engagement;
+  if(e&&e.has_authorization){b.className="badge ok";b.innerHTML='<span class="dot"></span>scope ✓';}
+  else{b.className="badge bad";b.innerHTML='<span class="dot"></span>no scope';}}
+async function refreshAudit(){const v=await api("/api/audit/verify");const b=$("#auditBadge");
+  b.className="badge "+(v.valid?"ok":"bad");b.innerHTML=`<span class="dot"></span>audit ${v.valid?'✓ '+v.verified:'BROKEN'}`;}
 
 async function loadPlugins(){
-  const data = await api("/api/plugins?mode="+state.mode);
-  state.plugins = data.plugins;
-  const groups = {};
-  state.plugins.forEach(p=>{ (groups[p.category]=groups[p.category]||[]).push(p); });
-  const sb=$("#sidebar"); sb.innerHTML="";
+  const data=await api("/api/plugins?mode="+state.mode);state.plugins=data.plugins;
+  const groups={};state.plugins.forEach(p=>(groups[p.category]=groups[p.category]||[]).push(p));
+  const sb=$("#sidebar");sb.innerHTML="";
   Object.keys(groups).sort().forEach(cat=>{
-    const h=document.createElement("div"); h.className="cat"; h.textContent=cat; sb.appendChild(h);
-    groups[cat].forEach(p=>{
-      const d=document.createElement("div"); d.className="plugin"+(state.plugin&&state.plugin.slug===p.slug?" active":"");
-      d.innerHTML=`<div class="nm">${p.name}</div><div class="pv">privilege: ${p.privilege}</div>`;
-      d.onclick=()=>selectPlugin(p); sb.appendChild(d);
-    });
+    const h=document.createElement("div");h.className="cat";h.textContent=cat;sb.appendChild(h);
+    groups[cat].forEach(p=>{const d=document.createElement("div");
+      d.className="pmod"+(state.plugin&&state.plugin.slug===p.slug?" active":"");
+      d.innerHTML=`<div class="nm">${p.name}</div><div class="pv"><span class="priv ${p.privilege}">${p.privilege}</span></div>`;
+      d.onclick=()=>selectPlugin(p);sb.appendChild(d);});
   });
 }
-function selectPlugin(p){ state.plugin=p; state.step=0; state.params={};
-  p.params.forEach(pr=>{ if(pr.default!==null && pr.default!==undefined) state.params[pr.name]=pr.default; });
-  loadPlugins(); renderCenter(); renderAttackModule(); }
+function selectPlugin(p){state.plugin=p;state.step=0;state.params={};
+  p.params.forEach(pr=>{if(pr.default!==null&&pr.default!==undefined)state.params[pr.name]=pr.default;});
+  loadPlugins();renderCenter();renderAttackModule();}
 
 function renderCenter(){
   const c=$("#center");
-  if(!state.engagement){ c.innerHTML='<div class="muted">Create an engagement to begin.</div>'; return; }
-  if(!state.plugin){ c.innerHTML='<div class="muted">Select a module from the left to launch the guided assistant.</div>'; return; }
-  const p=state.plugin, steps=p.steps, i=state.step, step=steps[i];
-  const pct=Math.round(((i)/(steps.length))*100);
-  const dots=steps.map((s,idx)=>`<span class="dot ${idx<i?'done':idx===i?'current':''}">${idx+1}. ${s.title.replace(/^\d+\.\s*/,'')}</span>`).join("");
+  if(!state.engagement){c.innerHTML='<div class="dim">Create an engagement to begin — click <b>+ Engagement</b>.</div>';return;}
+  if(!state.plugin){renderDashboard();return;}
+  const p=state.plugin,steps=p.steps,i=state.step,step=steps[i];
+  const pct=Math.round((i/steps.length)*100);
+  const dots=steps.map((s,idx)=>`<span class="wd ${idx<i?'done':idx===i?'cur':''}">${idx+1}</span>`).join("");
   const fields=(step.params||[]).map(name=>{
-    const pr=p.params.find(x=>x.name===name); if(!pr) return "";
-    const v=state.params[name]??""; let input;
-    if(pr.type==="bool") input=`<input type="checkbox" ${v?'checked':''} onchange="setParam('${name}',this.checked)">`;
-    else if(pr.type==="choice") input=`<select onchange="setParam('${name}',this.value)">`+pr.choices.map(ch=>`<option ${ch===v?'selected':''}>${ch}</option>`).join("")+`</select>`;
-    else if(pr.type==="textarea") input=`<textarea rows="5" oninput="setParam('${name}',this.value)">${v}</textarea>`;
-    else input=`<input value="${v}" oninput="setParam('${name}',this.value)">`;
+    const pr=p.params.find(x=>x.name===name);if(!pr)return"";const v=state.params[name]??"";let input;
+    if(pr.type==="bool")input=`<label class="check"><input type="checkbox" ${v?'checked':''} onchange="setParam('${name}',this.checked)"> enable</label>`;
+    else if(pr.type==="choice")input=`<select onchange="setParam('${name}',this.value)">`+pr.choices.map(ch=>`<option ${ch===v?'selected':''}>${ch}</option>`).join("")+`</select>`;
+    else if(pr.type==="textarea")input=`<textarea rows="5" oninput="setParam('${name}',this.value)">${esc(v)}</textarea>`;
+    else input=`<input value="${esc(String(v))}" oninput="setParam('${name}',this.value)">`;
     return `<div class="field"><label>${pr.label}${pr.required?' *':''}</label>${input}<div class="fhelp">${pr.help||""}</div></div>`;
   }).join("");
-  const last = i===steps.length-1;
-  c.innerHTML=`
-    <h2>${p.name}</h2><div class="sub">${p.description}</div>
-    <div class="steps-dots">${dots}</div>
-    <div class="progress"><i style="width:${pct}%"></i></div>
-    <div class="step">
-      <h3>${step.title}</h3><div class="help">${step.help}</div>
-      ${fields||'<div class="muted">Review the resolved action, then launch.</div>'}
-      ${step.expect?`<div class="expect">Expected: ${step.expect}</div>`:""}
-      <div class="nav">
-        <button class="ghost" onclick="prevStep()" ${i===0?'disabled':''}>← Back</button>
-        ${last
-          ? `<button class="primary" id="launchBtn" onclick="launch()">▶ Launch</button>`
-          : `<button class="primary" onclick="nextStep()">Next →</button>`}
-      </div>
+  const last=i===steps.length-1;
+  c.innerHTML=`<h2>${p.name}</h2><div class="sub">${p.description}</div>
+    <div class="dots">${dots}</div><div class="progress"><i style="width:${pct}%"></i></div>
+    <div class="step glass"><h3>${step.title}</h3><div class="help">${step.help}</div>
+      ${fields||'<div class="dim small">Review the resolved action, then launch.</div>'}
+      ${step.expect?`<div class="expect">🎯 Expected: ${step.expect}</div>`:""}
+      <div class="nav"><button class="btn btn-ghost" onclick="prevStep()" ${i===0?'disabled':''}>← Back</button>
+      ${last?`<button class="btn btn-primary" id="launchBtn" onclick="launch()">▶ Launch</button>`:`<button class="btn btn-primary" onclick="nextStep()">Next →</button>`}</div>
+    </div><div id="runResult" class="res"></div>`;
+}
+async function renderDashboard(){
+  const c=$("#center");const e=state.engagement;
+  const runs=await api(`/api/engagements/${e.id}/runs`);
+  const counts={critical:0,high:0,medium:0,low:0,info:0};let findings=0;
+  runs.forEach(r=>(r.findings||[]).forEach(f=>{counts[f.severity]++;findings++;}));
+  const recent=[];runs.forEach(r=>(r.findings||[]).forEach(f=>recent.push(f)));
+  c.innerHTML=`<h2>${e.name}</h2><div class="sub">Mode: <b>${e.mode}</b> · operator ${esc(e.operator)} · engagement #${e.id}</div>
+    <div class="kpis">
+      <div class="kpi glass"><div class="n">${runs.length}</div><div class="l">Actions</div></div>
+      <div class="kpi glass"><div class="n">${findings}</div><div class="l">Findings</div></div>
+      <div class="kpi glass"><div class="n" style="color:var(--crit)">${counts.critical}</div><div class="l">Critical</div></div>
+      <div class="kpi glass"><div class="n" style="color:var(--high)">${counts.high}</div><div class="l">High</div></div>
     </div>
-    <div id="runResult"></div>`;
+    <div class="step glass" style="margin-top:14px"><h3>Next step</h3>
+      <div class="help">Pick a module in the left sidebar to launch the guided assistant${e.has_authorization?'':' — for active/offensive modules, declare a <b>Scope</b> first'}.</div>
+      ${recent.length?`<div style="margin-top:6px">${recent.slice(0,6).map(f=>`<div class="finding glass" style="border-left-color:${sevColor(f.severity)}"><div class="fh"><span class="sevpill" style="background:${sevColor(f.severity)}">${f.severity}</span><b>${esc(f.title)}</b></div></div>`).join("")}</div>`:'<div class="dim small" style="margin-top:8px">No findings yet.</div>'}
+    </div>`;
 }
-function setParam(n,v){ state.params[n]=v; }
-function nextStep(){ if(state.step<state.plugin.steps.length-1){state.step++;renderCenter();} }
-function prevStep(){ if(state.step>0){state.step--;renderCenter();} }
+function setParam(n,v){state.params[n]=v;}
+function nextStep(){if(state.step<state.plugin.steps.length-1){state.step++;renderCenter();}}
+function prevStep(){if(state.step>0){state.step--;renderCenter();}}
 
-function renderAttackModule(){
-  const box=$("#attackModule");
-  if(!state.plugin){ box.innerHTML='<div class="muted">—</div>'; return; }
-  box.innerHTML=(state.plugin.attack_detail||[]).map(t=>
-    `<div class="att"><span class="tid">${t.id}</span> ${t.name}<div class="tac">${t.tactic}</div></div>`).join("")
-    || '<div class="muted">No technique mapping.</div>';
-}
+function renderAttackModule(){const b=$("#attackModule");
+  if(!state.plugin){b.innerHTML='<div class="dim small">Select a module.</div>';return;}
+  b.innerHTML=(state.plugin.attack_detail||[]).map(t=>`<div class="att glass"><span class="tid">${t.id}</span> ${t.name}<div class="tac">${t.tactic}</div></div>`).join("")||'<div class="dim small">No technique mapping.</div>';}
 
 async function launch(){
-  const btn=$("#launchBtn"); btn.disabled=true; btn.textContent="Running…";
+  const btn=$("#launchBtn");btn.disabled=true;btn.textContent="Running…";
   const r=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:state.plugin.slug,params:state.params});
   const res=$("#runResult");
-  if(r.detail){ res.innerHTML=`<p style="color:#ff6b6b">Error: ${r.detail}</p>`; btn.disabled=false; btn.textContent="▶ Launch"; return; }
-  const blocked = r.status==="blocked";
-  const sim = r.parsed && r.parsed._simulated;
-  res.innerHTML = `
-    <h3 style="margin-top:18px">Result — <span style="color:${blocked?'#ff6b6b':'var(--ok)'}">${r.status}</span>
-      ${sim?'<span class="pill">simulated</span>':''}</h3>
-    ${blocked?`<p style="color:#ff6b6b">Blocked by scope guard: ${r.error}</p>`:""}
-    ${r.command?`<div class="mono">$ ${r.command}</div>`:""}
+  if(r.detail){res.innerHTML=`<div class="finding glass" style="border-left-color:var(--crit)">Error: ${esc(r.detail)}</div>`;btn.disabled=false;btn.textContent="▶ Launch";toast(r.detail,"err");return;}
+  const blocked=r.status==="blocked";const sim=r.parsed&&r.parsed._simulated;
+  res.innerHTML=`<h3 style="margin-bottom:8px">Result — <span style="color:${blocked?'var(--crit)':'#065f46'}">${r.status}</span> ${sim?'<span class="pill">simulated</span>':''}</h3>
+    ${blocked?`<div class="finding glass" style="border-left-color:var(--crit)">⛔ Blocked by scope guard: ${esc(r.error)}</div>`:""}
+    ${r.command?`<div class="mono-block">$ ${esc(r.command)}</div>`:""}
     ${findingsTable(r.findings||[])}
-    ${r.raw_output?`<details><summary class="muted" style="cursor:pointer;margin-top:8px">raw output</summary><div class="mono">${escapeHtml((r.raw_output||'').slice(0,3000))}</div></details>`:""}`;
-  btn.disabled=false; btn.textContent="▶ Launch again";
-  refreshAudit(); renderFindings(); refreshEngagements();
+    ${r.raw_output?`<details><summary>raw output</summary><div class="mono-block" style="margin-top:6px">${esc((r.raw_output||'').slice(0,3000))}</div></details>`:""}`;
+  btn.disabled=false;btn.textContent="▶ Launch again";
+  toast(blocked?`Blocked: ${r.error.split(':')[0]}`:`${r.plugin}: ${(r.findings||[]).length} finding(s)`,blocked?"err":"ok");
+  refreshAudit();renderFindings();
 }
-function sevColor(s){return {critical:"#b00020",high:"#e24a00",medium:"#d79f00",low:"#2e7d32",info:"#607d8b"}[s]||"#607d8b";}
-function findingsTable(fs){
-  if(!fs.length) return '<p class="muted">No findings.</p>';
-  return `<table><thead><tr><th>Sev</th><th>Finding</th><th>Asset</th><th>ATT&CK</th></tr></thead><tbody>`+
-    fs.map(f=>`<tr><td><span class="sev" style="background:${sevColor(f.severity)}">${f.severity}</span></td>
-      <td><b>${escapeHtml(f.title)}</b><br><span class="muted">${escapeHtml(f.description||"")}</span>
-      ${f.remediation?`<br><span style="color:var(--ok);font-size:12px">↳ ${escapeHtml(f.remediation)}</span>`:""}</td>
-      <td>${escapeHtml(f.asset||"")}</td><td>${f.attack_technique||""}</td></tr>`).join("")+`</tbody></table>`;
-}
-async function renderFindings(){
-  const box=$("#findSummary"); if(!state.engagement){box.innerHTML='<div class="muted">—</div>';return;}
-  const runs=await api(`/api/engagements/${state.engagement.id}/runs`);
-  const counts={critical:0,high:0,medium:0,low:0,info:0};
+function findingsTable(fs){if(!fs.length)return'<div class="dim small">No findings.</div>';
+  return fs.map(f=>`<div class="finding glass" style="border-left-color:${sevColor(f.severity)}">
+    <div class="fh"><span class="sevpill" style="background:${sevColor(f.severity)}">${f.severity}</span><b>${esc(f.title)}</b>${f.cvss?`<span class="pill">CVSS ${f.cvss}</span>`:''}</div>
+    ${f.description?`<div class="small muted">${esc(f.description)}</div>`:''}
+    <div class="tiny dim" style="margin-top:4px">${f.asset?'📍 '+esc(f.asset)+' · ':''}${f.attack_technique||''}</div>
+    ${f.remediation?`<div class="rem">↳ ${esc(f.remediation)}</div>`:''}</div>`).join("");}
+async function renderFindings(){const box=$("#findSummary");if(!state.engagement){box.innerHTML='<div class="dim small">—</div>';return;}
+  const runs=await api(`/api/engagements/${state.engagement.id}/runs`);const counts={critical:0,high:0,medium:0,low:0,info:0};
   runs.forEach(r=>(r.findings||[]).forEach(f=>counts[f.severity]++));
-  box.innerHTML=Object.entries(counts).map(([k,v])=>`<span class="pill" style="border-color:${sevColor(k)}">${k}: ${v}</span>`).join("");
-}
-function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  box.innerHTML=Object.entries(counts).map(([k,v])=>`<span class="pill" style="border-color:${sevColor(k)}"><b style="color:${sevColor(k)}">${v}</b> ${k}</span>`).join("");}
+function renderScopePanel(){const box=$("#scopePanel");const e=state.engagement;
+  if(!e){box.innerHTML='<div class="dim small">—</div>';return;}
+  if(!e.has_authorization){box.innerHTML='<div class="scopebox glass"><div class="dim small">No scope declared.</div><button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="scopeBtn.click()">Declare scope</button></div>';return;}
+  api(`/api/engagements/${e.id}`).then(()=>{});
+  // fetch full authorization via engagements list already has has_auth; fetch detail:
+  fetch(`/api/engagements/${e.id}`).then(r=>r.json()).then(()=>{});
+  box.innerHTML='<div class="scopebox glass"><div class="small ok" style="color:#065f46"><b>Authorized ✓</b></div><button class="btn btn-danger btn-sm" style="margin-top:9px" onclick="revokeScope()">Revoke scope</button></div>';}
 
-/* ---- engagement / scope / reports dialogs ---- */
+/* dialogs & actions */
 $("#newEngBtn").onclick=()=>engDlg.showModal();
-async function createEngagement(){
-  const body={name:$("#engName").value||"Untitled",operator:$("#engOperator").value||"operator",mode:$("#engMode").value};
-  await post("/api/engagements",body); engDlg.close(); await refreshEngagements();
-}
-$("#scopeBtn").onclick=()=>{ if(!state.engagement){alert("Create/select an engagement first.");return;}
-  $("#targets").innerHTML=""; addTargetRow(); scopeDlg.showModal(); };
-function addTargetRow(type="cidr",value=""){
-  const d=document.createElement("div"); d.className="target-row";
-  d.innerHTML=`<select class="t-type">${["ip","cidr","host","domain","url","ssid"].map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join("")}</select>
-    <input class="t-val" placeholder="192.0.2.0/24 / example.com / MyLab-SSID" value="${value}">
-    <button class="ghost" onclick="this.parentNode.remove()">✕</button>`;
-  $("#targets").appendChild(d);
-}
+async function createEngagement(){const b={name:$("#engName").value||"Untitled",operator:$("#engOperator").value||"operator",mode:$("#engMode").value};
+  const e=await post("/api/engagements",b);engDlg.close();$("#engName").value="";toast("Engagement created");await refreshEngagements(e.id);}
+$("#delEngBtn").onclick=async()=>{const e=state.engagement;if(!e){return;}
+  if(!confirm(`Delete engagement "${e.name}" (#${e.id})? Its runs, findings, scope and reports are removed. The immutable audit log is kept.`))return;
+  const r=await del(`/api/engagements/${e.id}`);if(r.ok){toast("Engagement deleted");await refreshEngagements();refreshAudit();}else toast("Delete failed","err");};
+$("#scopeBtn").onclick=()=>{if(!state.engagement){toast("Create an engagement first","err");return;}$("#targets").innerHTML="";addTargetRow();scopeDlg.showModal();};
+function addTargetRow(type="cidr",value=""){const d=document.createElement("div");d.className="target-row";
+  d.innerHTML=`<select class="t-type" style="padding:8px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.7)">${["ip","cidr","host","domain","url","ssid"].map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join("")}</select>
+    <input class="t-val" style="padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.7)" placeholder="192.0.2.0/24 · example.com · MyLab-SSID" value="${esc(value)}">
+    <button class="btn btn-ghost icbtn" onclick="this.parentNode.remove()">✕</button>`;
+  $("#targets").appendChild(d);}
 async function saveScope(){
   const targets=[...document.querySelectorAll(".target-row")].map(r=>({type:r.querySelector(".t-type").value,value:r.querySelector(".t-val").value})).filter(t=>t.value);
-  const body={authorization_ref:$("#scRef").value,authorizing_party:$("#scParty").value,targets,
-    valid_from:new Date($("#scFrom").value||Date.now()).toISOString(),
-    valid_until:new Date($("#scUntil").value||Date.now()+86400000).toISOString(),accept:true};
-  const r=await post(`/api/engagements/${state.engagement.id}/authorization`,body);
-  if(r.id){ scopeDlg.close(); state.engagement.has_authorization=true; updateScopeBadge(); refreshAudit(); }
-  else alert("Error: "+JSON.stringify(r));
-}
-$("#reportsBtn").onclick=async()=>{ await listReports(); repDlg.showModal(); };
-async function genReport(){ if(!state.engagement)return; await post(`/api/engagements/${state.engagement.id}/report`,{}); await listReports(); refreshAudit(); }
-async function listReports(){
-  const data=await api("/api/reports");
-  $("#repList").innerHTML=data.reports.map(r=>`<div class="att"><b>#${r.id}</b> engagement ${r.engagement_id} [${r.mode}]
-    <a href="/api/reports/${r.id}/download?fmt=html" target="_blank">HTML</a>
-    ${r.pdf_path?`· <a href="/api/reports/${r.id}/download?fmt=pdf" target="_blank">PDF</a>`:'<span class="muted">· PDF n/a</span>'}</div>`).join("")||'<div class="muted">No reports yet.</div>';
-}
+  if(!targets.length){toast("Add at least one target","err");return;}
+  const b={authorization_ref:$("#scRef").value,authorizing_party:$("#scParty").value,targets,
+    valid_from:new Date($("#scFrom").value||Date.now()).toISOString(),valid_until:new Date($("#scUntil").value||Date.now()+86400000).toISOString(),accept:true};
+  const r=await post(`/api/engagements/${state.engagement.id}/authorization`,b);
+  if(r.id){scopeDlg.close();state.engagement.has_authorization=true;updateScopeBadge();renderScopePanel();refreshAudit();toast("Scope accepted & saved");}
+  else toast("Scope error","err");}
+async function revokeScope(){const e=state.engagement;if(!e)return;
+  if(!confirm("Revoke the scope authorization? Active/offensive modules will be blocked until a new scope is declared. The audit log is kept."))return;
+  const r=await del(`/api/engagements/${e.id}/authorization`);
+  if(r.ok){e.has_authorization=false;updateScopeBadge();renderScopePanel();refreshAudit();toast("Scope revoked");}else toast("Revoke failed","err");}
+$("#reportsBtn").onclick=async()=>{await listReports();repDlg.showModal();};
+async function genReport(){if(!state.engagement){toast("Select an engagement","err");return;}
+  toast("Generating report…","info");await post(`/api/engagements/${state.engagement.id}/report`,{});await listReports();refreshAudit();toast("Report generated");}
+async function listReports(){const data=await api("/api/reports");
+  $("#repList").innerHTML=data.reports.map(r=>`<div class="repitem glass"><b>#${r.id}</b> <span class="small">engagement ${r.engagement_id} · ${r.mode}</span>
+    <span class="spacer" style="flex:1"></span>
+    <a class="btn btn-ghost btn-sm" href="/api/reports/${r.id}/download?fmt=html" target="_blank">HTML</a>
+    ${r.pdf_path?`<a class="btn btn-ghost btn-sm" href="/api/reports/${r.id}/download?fmt=pdf" target="_blank">PDF</a>`:'<span class="tiny dim">PDF n/a</span>'}</div>`).join("")||'<div class="dim small">No reports yet.</div>';}
 
-/* ---- boot ---- */
-(async function(){ setMode("attack"); await refreshEngagements(); await refreshAudit(); })();
+(async function(){setMode("attack");await refreshEngagements();await refreshAudit();})();
 </script>
 </body>
 </html>

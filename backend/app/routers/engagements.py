@@ -84,3 +84,39 @@ def close_engagement(eid: int, db: Session = Depends(get_db)):
     db.commit()
     audit.record(db, action="engagement.close", actor=e.operator, engagement_id=e.id, detail={})
     return _to_out(e)
+
+
+@router.delete("/{eid}/authorization")
+def delete_authorization(eid: int, db: Session = Depends(get_db)):
+    """Revoke/delete the scope authorization. The audit log of what already
+    ran under it is append-only and is NOT removed — only the live scope is."""
+    e = db.get(Engagement, eid)
+    if not e:
+        raise HTTPException(404, "engagement not found")
+    if e.authorization is None:
+        raise HTTPException(404, "no authorization to revoke")
+    ref = e.authorization.authorization_ref
+    audit.record(db, action="scope.revoke", actor=e.operator, engagement_id=e.id,
+                 detail={"authorization_ref": ref})
+    db.delete(e.authorization)
+    db.commit()
+    return {"ok": True, "revoked": ref, "engagement_id": eid}
+
+
+@router.delete("/{eid}")
+def delete_engagement(eid: int, db: Session = Depends(get_db)):
+    """Delete an engagement and its runs/findings/scope/reports. The immutable
+    audit events remain (append-only); a deletion event is recorded first."""
+    e = db.get(Engagement, eid)
+    if not e:
+        raise HTTPException(404, "engagement not found")
+    name = e.name
+    audit.record(db, action="engagement.delete", actor=e.operator, engagement_id=e.id,
+                 detail={"name": name, "runs": len(e.runs), "findings": len(e.findings)})
+    # Reports reference the engagement via FK but are not in the ORM cascade; clear them.
+    from ..models import Report
+    for r in db.query(Report).filter(Report.engagement_id == eid).all():
+        db.delete(r)
+    db.delete(e)
+    db.commit()
+    return {"ok": True, "deleted": name, "engagement_id": eid}

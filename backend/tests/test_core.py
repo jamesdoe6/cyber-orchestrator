@@ -73,3 +73,24 @@ def test_report_generation_includes_authorization(client):
     assert rep["html_path"]
     html = open(rep["html_path"], encoding="utf-8").read()
     assert "MANDATE-TEST-001" in html and "Offensive" in html
+
+
+def test_revoke_scope(client):
+    e = client.post("/api/engagements", json={"name": "r", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])
+    assert client.get(f"/api/engagements/{e['id']}").json()["has_authorization"] is True
+    assert client.request("DELETE", f"/api/engagements/{e['id']}/authorization").json()["ok"] is True
+    assert client.get(f"/api/engagements/{e['id']}").json()["has_authorization"] is False
+    # offensive/active now blocked again
+    r = client.post(f"/api/engagements/{e['id']}/runs",
+                    json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}}).json()
+    assert r["status"] == "blocked"
+
+
+def test_delete_engagement_keeps_audit(client):
+    e = client.post("/api/engagements", json={"name": "d", "mode": "defense", "operator": "t"}).json()
+    client.post(f"/api/engagements/{e['id']}/runs", json={"plugin": "log_analysis", "params": {}})
+    assert client.request("DELETE", f"/api/engagements/{e['id']}").json()["ok"] is True
+    assert client.get(f"/api/engagements/{e['id']}").status_code == 404
+    # immutable audit chain stays intact after deletion
+    assert client.get("/api/audit/verify").json()["valid"] is True

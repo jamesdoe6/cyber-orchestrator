@@ -7,42 +7,77 @@
   :root{
     --accent: {% block accent %}#b00020{% endblock %};
     --accent2: {% block accent2 %}#e24a00{% endblock %};
-    --ink:#1a1a1a; --muted:#5a5a5a; --line:#e3e3e3; --bg:#ffffff;
+    --ink:#0a2540; --ink2:#1e3a5f; --ink3:#3d5a7d; --muted:#5a7184;
+    --line:#e3edf7; --line2:#d6e4f2; --bg:#ffffff; --soft:#f4faff; --soft2:#eef4fb;
   }
-  @page { size:A4; margin:18mm 16mm; }
+  @page{ size:A4; margin:16mm 14mm 18mm; @bottom-right{ content:"Page " counter(page) " / " counter(pages); font-size:8px; color:#8aa0b8; } }
   *{box-sizing:border-box;}
-  body{font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);
-       font-size:12px;line-height:1.5;margin:0;}
-  h1,h2,h3{font-weight:700;color:var(--ink);margin:0 0 .4em;}
-  h2{font-size:17px;border-bottom:2px solid var(--accent);padding-bottom:4px;margin-top:28px;
-     display:flex;align-items:center;gap:8px;}
-  h2::before{content:"";width:10px;height:10px;background:var(--accent);border-radius:2px;display:inline-block;}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif;
+       color:var(--ink);background:var(--bg);font-size:11px;line-height:1.55;margin:0;letter-spacing:-0.01em;}
+  h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-0.02em;}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;}
+  h2{font-size:16px;margin:26px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--accent);
+     display:flex;align-items:center;gap:9px;color:var(--ink);}
+  h2 .ic{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--accent),var(--accent2));
+     color:#fff;display:inline-grid;place-items:center;font-size:12px;}
+  h3{font-size:12.5px;margin:14px 0 6px;color:var(--ink2);}
   a{color:var(--accent);}
-  .cover{height:252mm;display:flex;flex-direction:column;justify-content:space-between;
-    background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);color:#fff;
-    padding:26mm 22mm;border-radius:4px;}
-  .cover .brand{font-size:14px;letter-spacing:3px;text-transform:uppercase;opacity:.9;}
-  .cover h1{color:#fff;font-size:40px;line-height:1.1;margin-top:auto;}
-  .cover .mode-chip{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.5);
-    padding:4px 12px;border-radius:20px;font-size:12px;letter-spacing:2px;text-transform:uppercase;}
-  .cover .meta{font-size:13px;opacity:.95;}
-  .cover .meta div{margin:3px 0;}
-  .sim{background:#fff3cd;border:1px solid #ffe08a;color:#7a5b00;padding:8px 12px;border-radius:4px;
-    font-size:11px;margin:10px 0;}
-  table{width:100%;border-collapse:collapse;margin:10px 0;}
+
+  /* Cover */
+  .cover{position:relative;height:250mm;border-radius:16px;overflow:hidden;color:#fff;padding:24mm 20mm;
+    display:flex;flex-direction:column;justify-content:space-between;
+    background:linear-gradient(150deg,var(--accent) 0%,var(--accent2) 60%,#0a2540 100%);}
+  .cover::after{content:"";position:absolute;inset:0;opacity:.12;
+    background-image:linear-gradient(to right,#fff 1px,transparent 1px),linear-gradient(to bottom,#fff 1px,transparent 1px);
+    background-size:42px 42px;mask-image:radial-gradient(ellipse 80% 60% at 50% 0,#000 20%,transparent 80%);}
+  .cover > *{position:relative;z-index:1;}
+  .cover .brand{font-size:12px;letter-spacing:4px;text-transform:uppercase;opacity:.92;}
+  .cover h1{font-size:40px;line-height:1.08;margin-top:auto;color:#fff;letter-spacing:-0.035em;}
+  .cover .chip{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.5);
+    padding:4px 14px;border-radius:20px;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+  .cover .meta{font-size:12px;opacity:.96;display:grid;grid-template-columns:1fr 1fr;gap:3px 24px;margin-top:16px;}
+  .cover .meta b{opacity:.8;font-weight:600;}
+  .riskband{display:inline-flex;align-items:center;gap:10px;background:rgba(0,0,0,.22);border-radius:12px;
+    padding:10px 16px;margin-top:14px;}
+  .riskband .lvl{font-size:22px;font-weight:800;letter-spacing:1px;}
+
+  .sim{background:#fff8e6;border:1px solid #ffe08a;color:#7a5b00;padding:9px 13px;border-radius:9px;font-size:10.5px;margin:12px 0;}
+
+  /* KPI tiles */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0;}
+  .kpi{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--soft);text-align:center;}
+  .kpi .n{font-size:26px;font-weight:800;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums;}
+  .kpi .l{font-size:9.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-top:5px;}
+
+  .two{display:grid;grid-template-columns:1fr 160px;gap:18px;align-items:center;}
+  .card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0;background:#fff;
+    box-shadow:0 8px 20px -16px rgba(12,47,92,.4);}
+  .legal{font-size:10px;color:var(--ink2);border-left:3px solid var(--accent);padding:8px 14px;background:var(--soft);border-radius:0 10px 10px 0;}
+
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:10.5px;}
   th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;}
-  th{background:#fafafa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
-  .sev{display:inline-block;padding:2px 8px;border-radius:3px;color:#fff;font-size:10px;
-    text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
-  .card{border:1px solid var(--line);border-radius:5px;padding:12px 14px;margin:10px 0;}
-  .mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:10.5px;background:#f6f6f6;
-    border:1px solid var(--line);border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all;}
-  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;}
-  .kpi .box{flex:1;min-width:90px;border:1px solid var(--line);border-radius:5px;padding:10px;text-align:center;}
-  .kpi .box .n{font-size:24px;font-weight:700;color:var(--accent);}
-  .kpi .box .l{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.5px;}
-  .legal{font-size:10.5px;color:var(--muted);border-left:3px solid var(--accent);padding:6px 12px;background:#fafafa;}
-  footer{margin-top:30px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;}
+  th{background:var(--soft2);font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;}
+  tr{break-inside:avoid;}
+
+  .sev{display:inline-block;padding:2px 9px;border-radius:5px;color:#fff;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
+  .pill{display:inline-block;font-size:9.5px;padding:2px 9px;border:1px solid var(--line2);border-radius:11px;background:var(--soft);margin:2px 3px 2px 0;color:var(--ink2);}
+  .tid{font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--accent);}
+
+  .finding{border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:12px 14px;margin:9px 0;break-inside:avoid;background:#fff;}
+  .finding .fh{display:flex;align-items:center;gap:9px;margin-bottom:5px;}
+  .finding .fh h4{font-size:12px;flex:1;}
+  .finding .kv{display:grid;grid-template-columns:110px 1fr;gap:2px 10px;font-size:10px;margin-top:7px;}
+  .finding .kv .k{color:var(--muted);font-weight:600;}
+  .rem{background:#ecfdf5;border:1px solid #bbf7d0;border-radius:8px;padding:7px 11px;margin-top:8px;font-size:10px;color:#065f46;}
+  .evi{background:#0b0e13;color:#cfe3f5;border-radius:8px;padding:8px 10px;margin-top:7px;font-size:9.5px;white-space:pre-wrap;word-break:break-word;font-family:'IBM Plex Mono',monospace;}
+
+  .mono-block{font-family:'IBM Plex Mono',monospace;font-size:9.5px;background:var(--soft2);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;white-space:pre-wrap;word-break:break-word;color:var(--ink2);max-height:260px;overflow:hidden;}
+  .runhdr{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:10px;color:var(--ink2);margin-bottom:6px;}
+  .runhdr b{color:var(--ink);}
+  .ok{color:#065f46;} .bad{color:#b00020;} .warn{color:#92400e;}
+  footer{margin-top:28px;font-size:9px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;}
+  .avoid{break-inside:avoid;}
 </style>
 </head>
 <body>
@@ -50,106 +85,142 @@
 <section class="cover">
   <div>
     <div class="brand">{{ org }}</div>
-    <div class="mode-chip">{% block modelabel %}Assessment{% endblock %}</div>
+    <div style="margin-top:6px;font-size:11px;opacity:.85" class="mono">CYBER ORCHESTRATOR · ASSESSMENT REPORT</div>
   </div>
-  <h1>{{ engagement.name }}</h1>
-  <div class="meta">
-    <div><strong>Author:</strong> {{ author }}</div>
-    <div><strong>Operator:</strong> {{ engagement.operator }}</div>
-    <div><strong>Generated:</strong> {{ generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
-    {% if authorization %}
-    <div><strong>Scope / perimeter:</strong>
-      {{ authorization.targets | map(attribute='value') | join(', ') }}</div>
-    <div><strong>Authorization:</strong> {{ authorization.authorization_ref }}
-      (signed off by {{ authorization.authorizing_party }})</div>
-    <div><strong>Validity:</strong> {{ authorization.valid_from.strftime("%Y-%m-%d") }}
-      → {{ authorization.valid_until.strftime("%Y-%m-%d") }}</div>
-    {% else %}
-    <div><strong>Authorization:</strong> none recorded</div>
-    {% endif %}
+  <div>
+    <div class="chip">{% block modelabel %}Assessment{% endblock %}</div>
+    <h1>{{ engagement.name }}</h1>
+    <div class="riskband"><span style="font-size:10px;letter-spacing:1px;opacity:.85">OVERALL RISK</span>
+      <span class="lvl">{{ risk_level }}</span></div>
+    <div class="meta">
+      <div><b>Author:</b> {{ author }}</div><div><b>Operator:</b> {{ engagement.operator }}</div>
+      <div><b>Generated:</b> {{ generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+      <div><b>Engagement ID:</b> #{{ engagement.id }}</div>
+      {% if authorization %}
+      <div><b>Mandate:</b> {{ authorization.authorization_ref }}</div>
+      <div><b>Authorized by:</b> {{ authorization.authorizing_party }}</div>
+      <div style="grid-column:1/3"><b>Perimeter:</b> {{ authorization.targets | map(attribute='value') | join(', ') }}</div>
+      <div style="grid-column:1/3"><b>Window:</b> {{ authorization.valid_from.strftime("%Y-%m-%d %H:%M") }} → {{ authorization.valid_until.strftime("%Y-%m-%d %H:%M") }} UTC</div>
+      {% else %}<div style="grid-column:1/3"><b>Authorization:</b> none recorded (passive/defensive only)</div>{% endif %}
+    </div>
   </div>
 </section>
-
 <div style="page-break-after:always"></div>
 
 {% if simulated %}
-<div class="sim"><strong>Note:</strong> one or more actions ran in <em>simulation</em> mode
-(the underlying tool was not installed on the host). Results are illustrative, not live.</div>
+<div class="sim"><b>⚠ Simulation notice:</b> one or more actions ran in simulation mode (the underlying tool was not installed on the host). Those results are illustrative, not live, and are flagged per action in the technical detail section.</div>
 {% endif %}
 
-<h2>Executive summary</h2>
-<p>{{ summary }}</p>
-<div class="kpi">
-  <div class="box"><div class="n">{{ runs|length }}</div><div class="l">Actions</div></div>
-  <div class="box"><div class="n">{{ findings|length }}</div><div class="l">Findings</div></div>
-  <div class="box"><div class="n">{{ counts.critical }}</div><div class="l">Critical</div></div>
-  <div class="box"><div class="n">{{ counts.high }}</div><div class="l">High</div></div>
+<h2><span class="ic">1</span> Executive summary</h2>
+<div class="two">
+  <div>
+    <p>{{ summary }}</p>
+    <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-top:12px">
+      <div class="kpi"><div class="n">{{ kpis.actions_total }}</div><div class="l">Actions</div></div>
+      <div class="kpi"><div class="n">{{ kpis.findings_total }}</div><div class="l">Findings</div></div>
+      <div class="kpi"><div class="n">{{ kpis.techniques_count }}</div><div class="l">ATT&CK techniques</div></div>
+      <div class="kpi"><div class="n">{{ kpis.assets_count }}</div><div class="l">Assets affected</div></div>
+    </div>
+  </div>
+  <div style="text-align:center">{{ donut | safe }}</div>
 </div>
 
-<h2>Authorization &amp; legal scope</h2>
+<div class="kpis" style="grid-template-columns:repeat(5,1fr);margin-top:14px">
+  {% for s in ['critical','high','medium','low','info'] %}
+  <div class="kpi"><div class="n" style="color:{{ sev_color[s] }}">{{ counts[s] }}</div><div class="l">{{ s }}</div></div>
+  {% endfor %}
+</div>
+
+<h3>Findings by severity</h3>
+{{ severity_bar | safe }}
+
+<h2><span class="ic">2</span> Authorization &amp; scope</h2>
 <div class="legal">
 {% if authorization %}
-  All activity in this report was conducted under written authorization
-  <strong>{{ authorization.authorization_ref }}</strong>, granted by
-  <strong>{{ authorization.authorizing_party }}</strong>, valid
-  {{ authorization.valid_from.strftime("%Y-%m-%d") }} to
-  {{ authorization.valid_until.strftime("%Y-%m-%d") }}, limited to the perimeter:
-  {{ authorization.targets | map(attribute='value') | join(', ') }}.
-  Every offensive action is recorded in the engagement's immutable, hash-chained audit log.
+  All activity documented here was conducted under written authorization
+  <b>{{ authorization.authorization_ref }}</b>, granted by <b>{{ authorization.authorizing_party }}</b>,
+  valid <b>{{ authorization.valid_from.strftime("%Y-%m-%d %H:%M") }}</b> to
+  <b>{{ authorization.valid_until.strftime("%Y-%m-%d %H:%M") }} UTC</b>, strictly limited to the perimeter below.
+  Every action was passed through a blocking scope guard and recorded in an immutable, hash-chained audit log
+  (chain verification: <b class="{{ 'ok' if audit_chain.valid else 'bad' }}">{{ 'INTACT' if audit_chain.valid else 'BROKEN' }}</b>,
+  {{ audit_chain.verified }} events).
 {% else %}
-  No scope authorization is recorded for this engagement. Only passive/defensive
-  actions can run without one.
+  No scope authorization was recorded for this engagement; only passive/defensive actions could run.
 {% endif %}
 </div>
+{% if authorization %}
+<table><thead><tr><th>Target type</th><th>Value</th></tr></thead><tbody>
+{% for t in authorization.targets %}<tr><td class="mono">{{ t.type }}</td><td class="mono">{{ t.value }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
 
-<h2>Findings by severity</h2>
-<div style="color:var(--ink)">{{ severity_chart | safe }}</div>
+<h2><span class="ic">3</span> MITRE ATT&amp;CK coverage</h2>
+<p class="muted" style="font-size:10px">Techniques exercised/observed during this engagement, grouped by tactic.</p>
+{% for tac in tactic_coverage %}
+<div class="avoid"><h3>{{ tac.tactic }}</h3>
+{% for t in tac.techniques %}<span class="pill"><span class="tid">{{ t.id }}</span> · {{ t.name }}</span>{% endfor %}</div>
+{% else %}<p class="muted">No techniques recorded.</p>{% endfor %}
 
-<h2>Findings</h2>
-<table>
-  <thead><tr><th>Severity</th><th>Finding</th><th>Asset</th><th>ATT&CK</th>{% block findhead %}{% endblock %}</tr></thead>
-  <tbody>
-  {% for f in findings %}
-    <tr>
-      <td><span class="sev" style="background:{{ sev_color[f.severity.value] }}">{{ f.severity.value }}</span></td>
-      <td><strong>{{ f.title }}</strong><br><span style="color:var(--muted)">{{ f.description }}</span></td>
-      <td>{{ f.asset }}</td>
-      <td>{{ f.attack_technique }}</td>
-      {% block findrow scoped %}{% endblock %}
-    </tr>
-  {% else %}
-    <tr><td colspan="5" style="color:var(--muted)">No findings recorded.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+{% if category_breakdown %}
+<h3>Actions by category</h3>
+<table><thead><tr><th>Category</th><th style="width:80px">Actions</th></tr></thead><tbody>
+{% for cat, n in category_breakdown %}<tr><td>{{ cat }}</td><td class="mono">{{ n }}</td></tr>{% endfor %}
+</tbody></table>
+{% endif %}
 
-<h2>Technical detail by action</h2>
-{% for r in runs %}
-<div class="card">
-  <strong>{{ r.plugin }}</strong> — target <code>{{ r.target or "n/a" }}</code>
-  — status {{ r.status.value }} — techniques {{ r.attack_techniques | join(", ") }}
-  {% if r.command %}<div class="mono">$ {{ r.command }}</div>{% endif %}
-  {% if r.raw_output %}<details><summary>Raw output (annex)</summary>
-    <div class="mono">{{ r.raw_output[:4000] }}</div></details>{% endif %}
+<h2><span class="ic">4</span> Findings — detail</h2>
+{% for g in groups %}
+<h3 style="color:{{ g.color }}">{{ g.severity.title() }} ({{ g.count }})</h3>
+{% for f in g["items"] %}
+<div class="finding" style="border-left-color:{{ f.sev_color }}">
+  <div class="fh"><span class="sev" style="background:{{ f.sev_color }}">{{ f.severity }}</span><h4>{{ f.title }}</h4>
+    {% if f.cvss %}<span class="pill">CVSS {{ f.cvss }}</span>{% endif %}</div>
+  {% if f.description %}<div style="font-size:10.5px">{{ f.description }}</div>{% endif %}
+  <div class="kv">
+    {% if f.asset %}<div class="k">Asset</div><div class="mono">{{ f.asset }}</div>{% endif %}
+    {% if f.tech_id %}<div class="k">ATT&CK</div><div><span class="tid">{{ f.tech_id }}</span> {{ f.tech_name }} <span class="muted">({{ f.tech_tactic }})</span></div>{% endif %}
+  </div>
+  {% if f.evidence %}<div class="evi">{{ f.evidence | tojson(indent=2) }}</div>{% endif %}
+  {% if f.remediation %}<div class="rem"><b>Remediation:</b> {{ f.remediation }}</div>{% endif %}
 </div>
 {% endfor %}
+{% else %}<p class="muted">No findings recorded.</p>{% endfor %}
 
-<h2>MITRE ATT&amp;CK mapping</h2>
-<table>
-  <thead><tr><th>Technique</th><th>Name</th><th>Tactic</th></tr></thead>
-  <tbody>
-  {% for t in attack_matrix %}
-    <tr><td>{{ t.id }}</td><td>{{ t.name }}</td><td>{{ t.tactic }}</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<h2><span class="ic">5</span> Technical detail — per action</h2>
+{% for r in runs %}
+<div class="card avoid">
+  <div class="runhdr">
+    <span><b>{{ r.plugin }}</b></span>
+    <span>target: <span class="mono">{{ r.target or 'n/a' }}</span></span>
+    <span>status: <b class="{{ 'ok' if r.status=='completed' else 'bad' if r.status in ['blocked','failed'] else 'warn' }}">{{ r.status }}</b></span>
+    <span>duration: {{ r.duration }}</span>
+    {% if r.exit_code is not none %}<span>exit: {{ r.exit_code }}</span>{% endif %}
+    {% if r.simulated %}<span class="warn">[simulated]</span>{% endif %}
+    <span>findings: {{ r.findings_n }}</span>
+  </div>
+  {% if r.techniques %}<div>{% for t in r.techniques %}<span class="pill"><span class="tid">{{ t.id }}</span> {{ t.name }}</span>{% endfor %}</div>{% endif %}
+  {% if r.error %}<div class="bad" style="font-size:10px;margin-top:5px">⛔ {{ r.error }}</div>{% endif %}
+  {% if r.command %}<div class="mono-block" style="margin-top:7px">$ {{ r.command }}</div>{% endif %}
+  {% if r.parsed %}<h4 style="font-size:10px;margin:8px 0 3px;color:var(--muted)">Parsed result</h4>
+    <div class="evi" style="background:var(--soft2);color:var(--ink2)">{{ r.parsed | tojson(indent=2) }}</div>{% endif %}
+  {% if r.raw_output %}<h4 style="font-size:10px;margin:8px 0 3px;color:var(--muted)">Raw output (annex)</h4>
+    <div class="mono-block">{{ r.raw_output }}</div>{% endif %}
+</div>
+{% else %}<p class="muted">No actions recorded.</p>{% endfor %}
 
 {% block remediation %}{% endblock %}
 
-<footer>
-  {{ org }} · {{ engagement.name }} · Confidential · Generated {{ generated_at.strftime("%Y-%m-%d") }}
-  by {{ author }}. For the authorized recipient only.
-</footer>
+<h2><span class="ic">{% block auditnum %}6{% endblock %}</span> Audit trail</h2>
+<p class="muted" style="font-size:10px">Immutable, hash-chained record of every action in this engagement. Chain status:
+  <b class="{{ 'ok' if audit_chain.valid else 'bad' }}">{{ 'INTACT' if audit_chain.valid else 'BROKEN' }}</b>.</p>
+<table><thead><tr><th style="width:120px">Timestamp (UTC)</th><th>Action</th><th>Actor</th><th style="width:90px">Hash</th></tr></thead><tbody>
+{% for a in audit %}<tr><td class="mono">{{ a.ts }}</td><td class="mono">{{ a.action }}</td><td>{{ a.actor }}</td><td class="mono">{{ a.hash }}…</td></tr>{% endfor %}
+</tbody></table>
 
+<h2><span class="ic">{% block methnum %}7{% endblock %}</span> Methodology &amp; disclaimer</h2>
+<p style="font-size:10px">{% block methodology %}This assessment was performed using the Cyber Orchestrator platform, which orchestrates industry-standard security tools behind a guarded, audited workflow with automatic MITRE ATT&CK mapping.{% endblock %}</p>
+<div class="legal" style="margin-top:8px">This report is confidential and intended solely for the authorized recipient. Findings reflect the state of the environment during the authorization window only. All testing was conducted within the declared, written-authorized perimeter.</div>
+
+<footer>{{ org }} · {{ engagement.name }} (#{{ engagement.id }}) · Confidential · Generated {{ generated_at.strftime("%Y-%m-%d %H:%M UTC") }} by {{ author }} · Cyber Orchestrator</footer>
 </body>
 </html>
