@@ -116,6 +116,39 @@ class ToolRunner:
             command=" ".join(argv),
         )
 
+    def stream(self, argv: list[str], on_line) -> ExecResult:
+        """Run argv, invoking on_line(str) for each output line as it arrives.
+
+        Lets the UI watch a long scan live. Still argv-only (never a shell) and
+        still bounded by ``timeout``.
+        """
+        import time
+        lines: list[str] = []
+        start = time.monotonic()
+        proc = subprocess.Popen(  # noqa: S603 - argv list, never shell=True
+            argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if time.monotonic() - start > self.timeout:
+                    proc.kill()
+                    on_line("[timeout] killed after %ds" % self.timeout)
+                    break
+                line = line.rstrip("\n")
+                lines.append(line)
+                try:
+                    on_line(line)
+                except Exception:  # noqa: BLE001 - a bad subscriber must not kill the scan
+                    pass
+            proc.wait(timeout=self.timeout)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+        return ExecResult(raw_output="\n".join(lines), exit_code=proc.returncode,
+                          command=" ".join(argv))
+
 
 class BasePlugin(ABC):
     meta: PluginMeta

@@ -22,7 +22,7 @@ def test_health_and_plugins(client):
 
 def test_defense_log_analysis_detects_bruteforce(client):
     e = client.post("/api/engagements", json={"name": "d", "mode": "defense", "operator": "t"}).json()
-    r = client.post(f"/api/engagements/{e['id']}/runs",
+    r = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                     json={"plugin": "log_analysis", "params": {"bruteforce_threshold": 5}}).json()
     assert r["status"] == "completed"
     sevs = {f["severity"] for f in r["findings"]}
@@ -31,7 +31,7 @@ def test_defense_log_analysis_detects_bruteforce(client):
 
 def test_scope_blocks_without_authorization(client):
     e = client.post("/api/engagements", json={"name": "a", "mode": "attack", "operator": "t"}).json()
-    r = client.post(f"/api/engagements/{e['id']}/runs",
+    r = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                     json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}}).json()
     assert r["status"] == "blocked"
     assert "no_authorization" in r["error"]
@@ -40,10 +40,10 @@ def test_scope_blocks_without_authorization(client):
 def test_scope_blocks_out_of_perimeter(client):
     e = client.post("/api/engagements", json={"name": "a", "mode": "attack", "operator": "t"}).json()
     _authorize(client, e["id"])
-    allowed = client.post(f"/api/engagements/{e['id']}/runs",
+    allowed = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                           json={"plugin": "nmap_scan", "params": {"target": "192.0.2.50"}}).json()
     assert allowed["status"] == "completed"
-    blocked = client.post(f"/api/engagements/{e['id']}/runs",
+    blocked = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                           json={"plugin": "nmap_scan", "params": {"target": "10.0.0.1"}}).json()
     assert blocked["status"] == "blocked"
     assert "out_of_scope" in blocked["error"]
@@ -51,7 +51,7 @@ def test_scope_blocks_out_of_perimeter(client):
 
 def test_mode_mismatch_rejected(client):
     e = client.post("/api/engagements", json={"name": "d", "mode": "defense", "operator": "t"}).json()
-    resp = client.post(f"/api/engagements/{e['id']}/runs",
+    resp = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                        json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}})
     assert resp.status_code == 400
 
@@ -59,7 +59,7 @@ def test_mode_mismatch_rejected(client):
 def test_audit_chain_integrity(client):
     e = client.post("/api/engagements", json={"name": "a", "mode": "attack", "operator": "t"}).json()
     _authorize(client, e["id"])
-    client.post(f"/api/engagements/{e['id']}/runs",
+    client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                 json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}})
     assert client.get("/api/audit/verify").json()["valid"] is True
 
@@ -67,7 +67,7 @@ def test_audit_chain_integrity(client):
 def test_report_generation_includes_authorization(client):
     e = client.post("/api/engagements", json={"name": "RptTest", "mode": "attack", "operator": "t"}).json()
     _authorize(client, e["id"])
-    client.post(f"/api/engagements/{e['id']}/runs",
+    client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                 json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}})
     rep = client.post(f"/api/engagements/{e['id']}/report").json()
     assert rep["html_path"]
@@ -82,15 +82,51 @@ def test_revoke_scope(client):
     assert client.request("DELETE", f"/api/engagements/{e['id']}/authorization").json()["ok"] is True
     assert client.get(f"/api/engagements/{e['id']}").json()["has_authorization"] is False
     # offensive/active now blocked again
-    r = client.post(f"/api/engagements/{e['id']}/runs",
+    r = client.post(f"/api/engagements/{e['id']}/runs?wait=true",
                     json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}}).json()
     assert r["status"] == "blocked"
 
 
 def test_delete_engagement_keeps_audit(client):
     e = client.post("/api/engagements", json={"name": "d", "mode": "defense", "operator": "t"}).json()
-    client.post(f"/api/engagements/{e['id']}/runs", json={"plugin": "log_analysis", "params": {}})
+    client.post(f"/api/engagements/{e['id']}/runs?wait=true", json={"plugin": "log_analysis", "params": {}})
     assert client.request("DELETE", f"/api/engagements/{e['id']}").json()["ok"] is True
     assert client.get(f"/api/engagements/{e['id']}").status_code == 404
     # immutable audit chain stays intact after deletion
+    assert client.get("/api/audit/verify").json()["valid"] is True
+
+
+def test_background_run_and_websocket(client):
+    e = client.post("/api/engagements", json={"name": "ws", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])
+    with client.websocket_connect(f"/ws/engagements/{e['id']}") as ws:
+        assert ws.receive_json()["type"] == "hello"
+        r = client.post(f"/api/engagements/{e['id']}/runs",
+                        json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}}).json()
+        assert r["status"] == "pending"            # returns immediately (background)
+        types = []
+        for _ in range(80):
+            ev = ws.receive_json()
+            types.append(ev["type"])
+            if ev["type"] == "done":
+                assert ev["status"] == "completed"
+                break
+        assert "status" in types and "line" in types and "done" in types
+
+
+def test_concurrent_runs_keep_audit_intact(client):
+    import time
+    e = client.post("/api/engagements", json={"name": "c", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])
+    ids = [client.post(f"/api/engagements/{e['id']}/runs",
+                       json={"plugin": "nmap_scan", "params": {"target": "192.0.2.10"}}).json()["id"]
+           for _ in range(10)]
+    deadline = time.time() + 20
+    runs = {}
+    while time.time() < deadline:
+        runs = {r["id"]: r["status"] for r in client.get(f"/api/engagements/{e['id']}/runs").json()}
+        if all(runs.get(i) in ("completed", "failed", "blocked") for i in ids):
+            break
+        time.sleep(0.2)
+    assert all(runs.get(i) == "completed" for i in ids)
     assert client.get("/api/audit/verify").json()["valid"] is True

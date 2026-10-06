@@ -66,7 +66,9 @@ into findings, ATT&CK mapping and reports.
 ## Data flow for one guided action
 
 ```
-operator → wizard collects params → POST /engagements/{id}/runs
+operator → wizard collects params → POST /engagements/{id}/runs  (returns immediately, status=pending)
+   → run queued on the scan thread pool; browser subscribes to WS /ws/engagements/{id}
+   → execute_run (background thread):
    → orchestrator.launch
        → scope.check(privilege, target)         # passive | active | offensive
             ├─ denied  → Run(status=blocked) + audit "run.blocked"  ⟶ STOP

@@ -8,12 +8,23 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import settings
 
-_connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+_connect_args = {"check_same_thread": False, "timeout": 30} if settings.database_url.startswith("sqlite") else {}
 _engine_kwargs = {"connect_args": _connect_args, "future": True}
 if not settings.database_url.startswith("sqlite"):
     _engine_kwargs.update(pool_pre_ping=True, pool_recycle=1800)
 engine = create_engine(settings.database_url, **_engine_kwargs)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+
+if settings.database_url.startswith("sqlite"):
+    from sqlalchemy import event
+
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_conn, _rec):  # better concurrency for background runs
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA busy_timeout=30000")
+        cur.close()
 
 
 class Base(DeclarativeBase):

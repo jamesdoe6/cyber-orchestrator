@@ -77,9 +77,12 @@ sudo systemctl status cyberorch        # should be active (running)
 journalctl -u cyberorch -f             # live logs
 ```
 
-The unit runs **Gunicorn with Uvicorn workers**, bound to `127.0.0.1:8777`,
-restarts on failure, and grants `CAP_NET_RAW`/`CAP_NET_ADMIN` so nmap/masscan
-can raw-scan **without root**.
+The unit runs **Gunicorn with a single Uvicorn worker** (ASGI + WebSocket),
+bound to `127.0.0.1:8777`, restarts on failure, and grants
+`CAP_NET_RAW`/`CAP_NET_ADMIN` so nmap/masscan can raw-scan **without root**.
+Scan concurrency is set by `CO_MAX_CONCURRENT_RUNS` (an in-process thread pool),
+not by the number of gunicorn workers — a single worker keeps live WebSocket
+progress coherent.
 
 ## 6. Verify
 

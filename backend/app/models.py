@@ -153,7 +153,7 @@ class AuditEvent(Base):
     actor: Mapped[str] = mapped_column(String(200), default="")
     action: Mapped[str] = mapped_column(String(120))                # e.g. "run.launch"
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
-    prev_hash: Mapped[str] = mapped_column(String(64), default="")
+    prev_hash: Mapped[str] = mapped_column(String(64), default="", unique=True)
     entry_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
 
 

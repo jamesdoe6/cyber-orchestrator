@@ -252,7 +252,7 @@ dialog::backdrop{background:rgba(10,37,64,.32);backdrop-filter:blur(3px);}
 
 <script>
 const API="";
-let state={mode:"attack",engagement:null,plugins:[],plugin:null,step:0,params:{}};
+let state={mode:"attack",engagement:null,plugins:[],plugin:null,step:0,params:{},currentRun:null,finalized:new Set(),ws:null};
 const $=s=>document.querySelector(s);
 function getToken(){try{return localStorage.getItem("co_token")||"";}catch(e){return "";}}
 function setToken(t){try{t?localStorage.setItem("co_token",t):localStorage.removeItem("co_token");}catch(e){}}
@@ -281,7 +281,7 @@ async function refreshEngagements(keepId){
   sel.onchange=()=>selectEngagement(list.find(x=>String(x.id)===sel.value));
 }
 function selectEngagement(e){state.engagement=e;if(e&&e.mode!==state.mode)setMode(e.mode);
-  updateScopeBadge();refreshAudit();renderScopePanel();renderFindings();renderCenter();}
+  updateScopeBadge();refreshAudit();renderScopePanel();renderFindings();renderCenter();if(e)ensureWS(e.id);}
 function updateScopeBadge(){const b=$("#scopeBadge");const e=state.engagement;
   if(e&&e.has_authorization){b.className="badge ok";b.innerHTML='<span class="dot"></span>scope ✓';}
   else{b.className="badge bad";b.innerHTML='<span class="dot"></span>no scope';}}
@@ -357,18 +357,61 @@ function renderAttackModule(){const b=$("#attackModule");
 
 async function launch(){
   const btn=$("#launchBtn");btn.disabled=true;btn.textContent="Running…";
-  const r=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:state.plugin.slug,params:state.params});
   const res=$("#runResult");
+  ensureWS(state.engagement.id);
+  const r=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:state.plugin.slug,params:state.params});
   if(r.detail){res.innerHTML=`<div class="finding glass" style="border-left-color:var(--crit)">Error: ${esc(r.detail)}</div>`;btn.disabled=false;btn.textContent="▶ Launch";toast(r.detail,"err");return;}
+  if(r.status==="blocked"){finalizeRun(r.id,r);return;}
+  // background: show a live streaming panel, WS (or poll fallback) will finalize
+  state.currentRun=r.id;
+  res.innerHTML=`<h3 style="margin-bottom:8px">Running <span class="pill">live</span> <span class="dim small">#${r.id}</span></h3>
+    ${r.command?`<div class="mono-block">$ ${esc(r.command||state.plugin.name)}</div>`:""}
+    <div style="margin-top:8px"><div class="rb-h" style="margin:0 0 5px">Live output</div>
+      <pre id="liveLog" class="mono-block" style="min-height:60px"></pre></div>`;
+  pollFallback(r.id,0);
+}
+function appendLive(runId,line){
+  if(runId!==state.currentRun)return;const el=$("#liveLog");if(!el)return;
+  el.textContent+=(el.textContent?"\n":"")+line;el.scrollTop=el.scrollHeight;}
+async function finalizeRun(runId,known){
+  if(state.finalized.has(runId))return;state.finalized.add(runId);
+  const r=known||await api(`/api/engagements/${state.engagement.id}/runs/${runId}`);
+  refreshAudit();renderFindings();
+  const btn=$("#launchBtn");if(btn){btn.disabled=false;btn.textContent="▶ Launch again";}
+  if(runId!==state.currentRun && !(known&&known.status==="blocked"))return;
+  const res=$("#runResult");if(!res)return;
   const blocked=r.status==="blocked";const sim=r.parsed&&r.parsed._simulated;
-  res.innerHTML=`<h3 style="margin-bottom:8px">Result — <span style="color:${blocked?'var(--crit)':'#065f46'}">${r.status}</span> ${sim?'<span class="pill">simulated</span>':''}</h3>
-    ${blocked?`<div class="finding glass" style="border-left-color:var(--crit)">⛔ Blocked by scope guard: ${esc(r.error)}</div>`:""}
+  res.innerHTML=`<h3 style="margin-bottom:8px">Result — <span style="color:${blocked||r.status==='failed'?'var(--crit)':'#065f46'}">${r.status}</span> ${sim?'<span class="pill">simulated</span>':''}</h3>
+    ${blocked?`<div class="finding glass" style="border-left-color:var(--crit)">⛔ Blocked by scope guard: ${esc(r.error||'')}</div>`:""}
+    ${r.status==='failed'?`<div class="finding glass" style="border-left-color:var(--crit)">⚠ ${esc(r.error||'failed')}</div>`:""}
     ${r.command?`<div class="mono-block">$ ${esc(r.command)}</div>`:""}
     ${findingsTable(r.findings||[])}
     ${r.raw_output?`<details><summary>raw output</summary><div class="mono-block" style="margin-top:6px">${esc((r.raw_output||'').slice(0,3000))}</div></details>`:""}`;
-  btn.disabled=false;btn.textContent="▶ Launch again";
-  toast(blocked?`Blocked: ${r.error.split(':')[0]}`:`${r.plugin}: ${(r.findings||[]).length} finding(s)`,blocked?"err":"ok");
-  refreshAudit();renderFindings();
+  toast(blocked?`Blocked: ${(r.error||'').split(':')[0]}`:r.status==='failed'?`Failed: ${r.plugin}`:`${r.plugin}: ${(r.findings||[]).length} finding(s)`,(blocked||r.status==='failed')?"err":"ok");
+}
+// Safety net if the WebSocket is unavailable: poll until terminal.
+async function pollFallback(runId,tries){
+  if(state.finalized.has(runId)||tries>40)return;
+  await new Promise(r=>setTimeout(r,1500));
+  if(state.finalized.has(runId))return;
+  const r=await api(`/api/engagements/${state.engagement.id}/runs/${runId}`);
+  if(["completed","blocked","failed"].includes(r.status)){finalizeRun(runId,r);}
+  else pollFallback(runId,tries+1);
+}
+function ensureWS(eid){
+  if(state.ws && state.ws._eid===eid && state.ws.readyState<=1)return;
+  try{if(state.ws)state.ws.close();}catch(e){}
+  const proto=location.protocol==="https:"?"wss":"ws";
+  const ws=new WebSocket(`${proto}://${location.host}/ws/engagements/${eid}${tokenQS('?')}`);
+  ws._eid=eid;
+  ws.onmessage=ev=>{try{handleEvent(JSON.parse(ev.data));}catch(e){}};
+  ws.onclose=()=>{if(state.ws===ws)state.ws=null;};
+  state.ws=ws;
+}
+function handleEvent(e){
+  if(e.type==="line"){appendLive(e.run_id,e.line);}
+  else if(e.type==="status"&&e.status==="running"){appendLive(e.run_id,"[started] "+(e.command||e.plugin));}
+  else if(e.type==="done"){finalizeRun(e.run_id);}
 }
 function findingsTable(fs){if(!fs.length)return'<div class="dim small">No findings.</div>';
   return fs.map(f=>`<div class="finding glass" style="border-left-color:${sevColor(f.severity)}">

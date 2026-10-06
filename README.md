@@ -6,7 +6,7 @@
 
 It *wraps* the mature pentest / OSINT / threat-defense toolchain (nmap, nuclei, aircrack-ng, Suricata…) — it does **not** reimplement it. The value is the guided workflow, the blocking legal guardrails, the automatic MITRE ATT&CK mapping and the unified reporting that the ecosystem lacks.
 
-![status](https://img.shields.io/badge/status-MVP-blue) ![python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white) ![api](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white) ![bind](https://img.shields.io/badge/bind-127.0.0.1%20only-success) ![modules](https://img.shields.io/badge/modules-48-orange) ![security](https://img.shields.io/badge/hardened-CSP%20%7C%20token%20%7C%20audit-success) ![tests](https://img.shields.io/badge/tests-passing-brightgreen) ![license](https://img.shields.io/badge/license-see%20repo-lightgrey)
+![status](https://img.shields.io/badge/status-MVP-blue) ![python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white) ![api](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white) ![bind](https://img.shields.io/badge/bind-127.0.0.1%20only-success) ![modules](https://img.shields.io/badge/modules-48-orange) ![live](https://img.shields.io/badge/scans-async%20%2B%20WebSocket-0b5fbf) ![security](https://img.shields.io/badge/hardened-CSP%20%7C%20token%20%7C%20audit-success) ![tests](https://img.shields.io/badge/tests-passing-brightgreen) ![license](https://img.shields.io/badge/license-see%20repo-lightgrey)
 
 </div>
 
@@ -65,6 +65,7 @@ Tools not installed run in flagged **simulation** mode. Full per-tool usage is i
 - **Immutable, hash-chained audit** of every action (tamper-evident).
 - **Automatic MITRE ATT&CK** mapping, shown live and in reports.
 - **Consulting-grade reports** (themed HTML + PDF).
+- **Background scans + live progress**: runs execute in a bounded thread pool and don't block the UI; a **WebSocket** streams status and tool output line-by-line, with a polling fallback.
 - **Simulation mode**: a module whose tool isn't installed yet runs with clearly-flagged sample output, so you can learn the whole flow before provisioning.
 
 ---
@@ -104,7 +105,7 @@ This mirrors exactly what you see on screen.
 | **2** | Click **`Scope`**, fill it, *Accept & save* | top bar | Declare the authorized perimeter. Badge flips `no scope` 🔴 → `scope ✓` 🟢. **Required** before any active/offensive module. |
 | **3** | Pick a module | left sidebar | Modules are grouped by category. Click one (e.g. *Nmap network scan*). |
 | **4** | Follow the step-by-step **assistant** | center | Fill each step, **Next →**. Contextual help + "what to expect" on every step. |
-| **5** | Click **▶ Launch** | last step | Scope is re-checked and the action is written to the audit log *before* the tool starts. |
+| **5** | Click **▶ Launch** | last step | Scope is re-checked and audited *before* the tool starts. The scan runs **in the background** — a live log streams over WebSocket and findings appear when it finishes. |
 | **6** | Read the **findings** | center + right panel | Severity, asset, and the matching **MITRE ATT&CK** technique appear live. |
 | **7** | Click **`Reports`** → *Generate report* | top bar | Themed HTML (+ PDF) with cover, exec summary, scope, findings, ATT&CK, remediation. |
 

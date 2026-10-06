@@ -17,13 +17,20 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from .config import settings
 from .database import init_db
 from .plugins import registry
-from .routers import audit, engagements, plugins, reports, runs, updates
+from .events import bus
+from .routers import audit, engagements, plugins, reports, runs, updates, ws
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    import asyncio
+    from . import runner_service
     init_db()
     registry.load_all()
-    yield
+    bus.set_loop(asyncio.get_running_loop())
+    try:
+        yield
+    finally:
+        runner_service.shutdown()
 
 
 app = FastAPI(
@@ -41,6 +48,7 @@ app.include_router(runs.router)
 app.include_router(audit.router)
 app.include_router(reports.router)
 app.include_router(updates.router)
+app.include_router(ws.router)
 
 
 @app.middleware("http")

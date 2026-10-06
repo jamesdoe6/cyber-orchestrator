@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # (fine for a single-operator loopback dev setup).
     api_token: str | None = None
 
+    # --- Background execution ---
+    max_concurrent_runs: int = 4  # size of the scan thread pool
+
     # --- Safety switches ---
     # Hard kill-switch for every offensive plugin. When false, only defensive
     # and passive-recon plugins may run, regardless of scope authorization.

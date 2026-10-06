@@ -15,15 +15,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import AuditEvent
 
 _AUDIT_FILE = settings.paths_audit / "audit.log"
+# Serializes the read-last-hash + append within a process; the UNIQUE(prev_hash)
+# constraint + retry below makes it correct across processes (gunicorn workers) too.
+_CHAIN_LOCK = threading.Lock()
 
 
 def _canonical(record: dict) -> str:
@@ -52,7 +58,6 @@ def record(
     detail = detail or {}
     ts = datetime.now(timezone.utc)
     ts_iso = ts.isoformat()
-    prev = _last_hash(db)
     body = {
         "ts": ts_iso,
         "engagement_id": engagement_id,
@@ -60,21 +65,28 @@ def record(
         "action": action,
         "detail": detail,
     }
-    entry_hash = _hash(prev, body)
 
-    event = AuditEvent(
-        ts=ts,
-        ts_iso=ts_iso,
-        engagement_id=engagement_id,
-        actor=actor,
-        action=action,
-        detail=detail,
-        prev_hash=prev,
-        entry_hash=entry_hash,
-    )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
+    event = None
+    for _attempt in range(12):
+        with _CHAIN_LOCK:
+            prev = _last_hash(db)
+            entry_hash = _hash(prev, body)
+            event = AuditEvent(
+                ts=ts, ts_iso=ts_iso, engagement_id=engagement_id, actor=actor,
+                action=action, detail=detail, prev_hash=prev, entry_hash=entry_hash,
+            )
+            db.add(event)
+            try:
+                db.commit()
+                db.refresh(event)
+                break
+            except IntegrityError:
+                # Another writer took this slot (same prev_hash): retry with a fresh tail.
+                db.rollback()
+                event = None
+                time.sleep(0.01 * (_attempt + 1))
+    if event is None:
+        raise RuntimeError("audit chain contention: could not append after retries")
 
     # Second, out-of-band copy. Best-effort: a disk error must not stop the
     # action from being recorded in the DB, but we never swallow it silently.
