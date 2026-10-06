@@ -1,0 +1,32 @@
+# Cyber Orchestrator systemd unit.
+# Install: sudo cp provisioning/cyberorch.service /etc/systemd/system/
+#          sudo systemctl daemon-reload && sudo systemctl enable --now cyberorch
+# Adjust paths/User to your install (defaults assume /opt/cyber-orchestrator + user 'cyberorch').
+[Unit]
+Description=Cyber Orchestrator (local pentest/defense orchestration)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=cyberorch
+Group=cyberorch
+WorkingDirectory=/opt/cyber-orchestrator/backend
+EnvironmentFile=/opt/cyber-orchestrator/backend/.env
+ExecStart=/opt/cyber-orchestrator/backend/.venv/bin/gunicorn app.main:app -c /opt/cyber-orchestrator/provisioning/gunicorn_conf.py
+Restart=on-failure
+RestartSec=5
+
+# Allow raw-socket scanning (nmap/masscan) without running as root.
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+# Hardening
+ProtectSystem=full
+ProtectHome=false
+PrivateTmp=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

@@ -254,7 +254,14 @@ dialog::backdrop{background:rgba(10,37,64,.32);backdrop-filter:blur(3px);}
 const API="";
 let state={mode:"attack",engagement:null,plugins:[],plugin:null,step:0,params:{}};
 const $=s=>document.querySelector(s);
-async function api(p,o){const r=await fetch(API+p,o);return r.json();}
+function getToken(){try{return localStorage.getItem("co_token")||"";}catch(e){return "";}}
+function setToken(t){try{t?localStorage.setItem("co_token",t):localStorage.removeItem("co_token");}catch(e){}}
+function authHeaders(extra){const h=Object.assign({},extra||{});const t=getToken();if(t)h["X-API-Token"]=t;return h;}
+function tokenQS(sep){const t=getToken();return t?sep+"token="+encodeURIComponent(t):"";}
+async function api(p,o){o=o||{};o.headers=authHeaders(o.headers);const r=await fetch(API+p,o);
+  if(r.status===401){const t=prompt("API token required (production mode). Enter your CO_API_TOKEN:");if(t){setToken(t);return api(p,o0(o));}}
+  return r.json().catch(()=>({}));}
+function o0(o){const c=Object.assign({},o);c.headers=authHeaders(typeof o.headers==='object'?Object.assign({},o.headers):{});return c;}
 async function post(p,b){return api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});}
 async function del(p){return api(p,{method:"DELETE"});}
 function esc(s){return(s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
@@ -388,20 +395,33 @@ async function createEngagement(){const b={name:$("#engName").value||"Untitled",
 $("#delEngBtn").onclick=async()=>{const e=state.engagement;if(!e){return;}
   if(!confirm(`Delete engagement "${e.name}" (#${e.id})? Its runs, findings, scope and reports are removed. The immutable audit log is kept.`))return;
   const r=await del(`/api/engagements/${e.id}`);if(r.ok){toast("Engagement deleted");await refreshEngagements();refreshAudit();}else toast("Delete failed","err");};
-$("#scopeBtn").onclick=()=>{if(!state.engagement){toast("Create an engagement first","err");return;}$("#targets").innerHTML="";addTargetRow();scopeDlg.showModal();};
+function toLocalInput(d){const z=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;}
+$("#scopeBtn").onclick=()=>{if(!state.engagement){toast("Create an engagement first","err");return;}
+  $("#targets").innerHTML="";addTargetRow();
+  const now=new Date();const until=new Date(Date.now()+7*86400000);
+  if(!$("#scFrom").value) $("#scFrom").value=toLocalInput(now);
+  if(!$("#scUntil").value) $("#scUntil").value=toLocalInput(until);
+  scopeDlg.showModal();};
 function addTargetRow(type="cidr",value=""){const d=document.createElement("div");d.className="target-row";
   d.innerHTML=`<select class="t-type" style="padding:8px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.7)">${["ip","cidr","host","domain","url","ssid"].map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join("")}</select>
     <input class="t-val" style="padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.7)" placeholder="192.0.2.0/24 · example.com · MyLab-SSID" value="${esc(value)}">
     <button class="btn btn-ghost icbtn" onclick="this.parentNode.remove()">✕</button>`;
   $("#targets").appendChild(d);}
 async function saveScope(){
-  const targets=[...document.querySelectorAll(".target-row")].map(r=>({type:r.querySelector(".t-type").value,value:r.querySelector(".t-val").value})).filter(t=>t.value);
+  const targets=[...document.querySelectorAll(".target-row")].map(r=>({type:r.querySelector(".t-type").value,value:r.querySelector(".t-val").value.trim()})).filter(t=>t.value);
   if(!targets.length){toast("Add at least one target","err");return;}
-  const b={authorization_ref:$("#scRef").value,authorizing_party:$("#scParty").value,targets,
-    valid_from:new Date($("#scFrom").value||Date.now()).toISOString(),valid_until:new Date($("#scUntil").value||Date.now()+86400000).toISOString(),accept:true};
+  if(!$("#scRef").value.trim()){toast("Enter an authorization reference","err");return;}
+  if(!$("#scParty").value.trim()){toast("Enter the authorizing party","err");return;}
+  const from=new Date($("#scFrom").value||Date.now());
+  const until=new Date($("#scUntil").value||Date.now()+7*86400000);
+  if(isNaN(from)||isNaN(until)){toast("Invalid date(s)","err");return;}
+  if(until<=from){toast("\u201cValid until\u201d must be after \u201cValid from\u201d","err");return;}
+  const b={authorization_ref:$("#scRef").value.trim(),authorizing_party:$("#scParty").value.trim(),targets,
+    valid_from:from.toISOString(),valid_until:until.toISOString(),accept:true};
   const r=await post(`/api/engagements/${state.engagement.id}/authorization`,b);
-  if(r.id){scopeDlg.close();state.engagement.has_authorization=true;updateScopeBadge();renderScopePanel();refreshAudit();toast("Scope accepted & saved");}
-  else toast("Scope error","err");}
+  if(r&&r.id){scopeDlg.close();state.engagement.has_authorization=true;updateScopeBadge();renderScopePanel();refreshAudit();toast("Scope accepted & saved");}
+  else toast("Scope error: "+(r&&r.detail?r.detail:"check the fields"),"err");}
 async function revokeScope(){const e=state.engagement;if(!e)return;
   if(!confirm("Revoke the scope authorization? Active/offensive modules will be blocked until a new scope is declared. The audit log is kept."))return;
   const r=await del(`/api/engagements/${e.id}/authorization`);
@@ -412,8 +432,8 @@ async function genReport(){if(!state.engagement){toast("Select an engagement","e
 async function listReports(){const data=await api("/api/reports");
   $("#repList").innerHTML=data.reports.map(r=>`<div class="repitem glass"><b>#${r.id}</b> <span class="small">engagement ${r.engagement_id} · ${r.mode}</span>
     <span class="spacer" style="flex:1"></span>
-    <a class="btn btn-ghost btn-sm" href="/api/reports/${r.id}/download?fmt=html" target="_blank">HTML</a>
-    ${r.pdf_path?`<a class="btn btn-ghost btn-sm" href="/api/reports/${r.id}/download?fmt=pdf" target="_blank">PDF</a>`:'<span class="tiny dim">PDF n/a</span>'}</div>`).join("")||'<div class="dim small">No reports yet.</div>';}
+    <a class="btn btn-ghost btn-sm" href="/api/reports/${r.id}/download?fmt=html${tokenQS('&')}" target="_blank">HTML</a>
+    ${r.pdf_path?`<a class="btn btn-ghost btn-sm" href="/api/reports/${r.id}/download?fmt=pdf${tokenQS('&')}" target="_blank">PDF</a>`:'<span class="tiny dim">PDF n/a</span>'}</div>`).join("")||'<div class="dim small">No reports yet.</div>';}
 
 (async function(){setMode("attack");await refreshEngagements();await refreshAudit();})();
 </script>

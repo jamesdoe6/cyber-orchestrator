@@ -9,8 +9,8 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import settings
 from .database import init_db
@@ -38,6 +38,18 @@ app.include_router(audit.router)
 app.include_router(reports.router)
 app.include_router(updates.router)
 
+
+@app.middleware("http")
+async def _token_guard(request: Request, call_next):
+    """Optional production auth. Active only when CO_API_TOKEN is set."""
+    token = settings.api_token
+    path = request.url.path
+    if token and path.startswith("/api/") and path != "/api/health":
+        supplied = request.headers.get("X-API-Token") or request.query_params.get("token")
+        if supplied != token:
+            return JSONResponse({"detail": "unauthorized"}, status_code=401)
+    return await call_next(request)
+
 _FRONTEND = Path(__file__).resolve().parent.parent.parent / "frontend" / "index.html"
 
 
@@ -48,6 +60,7 @@ def health() -> dict:
         "offensive_enabled": settings.offensive_enabled,
         "enforce_scope": settings.enforce_scope,
         "plugins": len(registry.all_plugins()),
+        "auth_required": bool(settings.api_token),
     }
 
 

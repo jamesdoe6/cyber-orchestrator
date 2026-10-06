@@ -163,6 +163,8 @@ Each module declares one. It decides what the scope guard enforces:
 | 🟡 **active** | Touches the target, non-destructive (port/vuln scan) | **Yes** + target in scope |
 | 🔴 **offensive** | Exploitation / credential attacks / injection / Wi-Fi | **Yes** + target in scope + global kill-switch ON |
 
+> **Optional API token** (`CO_API_TOKEN`): when set, every `/api` call needs the token (header `X-API-Token` or `?token=`) — enable it in production. Unset = open (fine for a single-operator loopback dev box).
+>
 > The **offensive kill-switch** is `CO_OFFENSIVE_ENABLED` (default `true`). Set it `false` in `backend/.env` to disable every 🔴 module globally, regardless of scope.
 
 ---
@@ -330,6 +332,7 @@ Each module declares one. It decides what the scope guard enforces:
 - **WSL2 / Ubuntu**: full guide in [`docs/DEPLOY_WSL.md`](docs/DEPLOY_WSL.md). Everything works **except Wi-Fi monitor mode** (WSL2 can't access the radio).
 - **Dedicated VM / bare-metal (for Wi-Fi)**: use **Kali** + a monitor-capable USB Wi-Fi adapter (e.g. AR9271). `provision.sh --minimal` sets up the runtime.
 - **Containers**: `provision.sh --with-containers` installs Docker for OpenVAS / Metasploit / Wazuh images.
+- **Production (PostgreSQL + systemd + token auth + SSH tunnel)**: full A→Z in [`docs/DEPLOY_PRODUCTION.md`](docs/DEPLOY_PRODUCTION.md).
 
 ---
 

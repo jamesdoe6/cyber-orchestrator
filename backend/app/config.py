@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # Postgres example: postgresql+psycopg://user:pass@127.0.0.1/cyberorch
     database_url: str = f"sqlite:///{DATA_DIR / 'cyberorch.db'}"
 
+    # --- Access control (production) ---
+    # When set (CO_API_TOKEN), every /api call (except /api/health) must carry
+    # the token via the X-API-Token header or a ?token= query param. Unset = open
+    # (fine for a single-operator loopback dev setup).
+    api_token: str | None = None
+
     # --- Safety switches ---
     # Hard kill-switch for every offensive plugin. When false, only defensive
     # and passive-recon plugins may run, regardless of scope authorization.
