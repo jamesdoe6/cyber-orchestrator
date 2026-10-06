@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block doctitle %}Assessment Report{% endblock %}</title>
+<style>
+  :root{
+    --accent: {% block accent %}#b00020{% endblock %};
+    --accent2: {% block accent2 %}#e24a00{% endblock %};
+    --ink:#1a1a1a; --muted:#5a5a5a; --line:#e3e3e3; --bg:#ffffff;
+  }
+  @page { size:A4; margin:18mm 16mm; }
+  *{box-sizing:border-box;}
+  body{font-family:"Helvetica Neue",Arial,sans-serif;color:var(--ink);background:var(--bg);
+       font-size:12px;line-height:1.5;margin:0;}
+  h1,h2,h3{font-weight:700;color:var(--ink);margin:0 0 .4em;}
+  h2{font-size:17px;border-bottom:2px solid var(--accent);padding-bottom:4px;margin-top:28px;
+     display:flex;align-items:center;gap:8px;}
+  h2::before{content:"";width:10px;height:10px;background:var(--accent);border-radius:2px;display:inline-block;}
+  a{color:var(--accent);}
+  .cover{height:252mm;display:flex;flex-direction:column;justify-content:space-between;
+    background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);color:#fff;
+    padding:26mm 22mm;border-radius:4px;}
+  .cover .brand{font-size:14px;letter-spacing:3px;text-transform:uppercase;opacity:.9;}
+  .cover h1{color:#fff;font-size:40px;line-height:1.1;margin-top:auto;}
+  .cover .mode-chip{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.5);
+    padding:4px 12px;border-radius:20px;font-size:12px;letter-spacing:2px;text-transform:uppercase;}
+  .cover .meta{font-size:13px;opacity:.95;}
+  .cover .meta div{margin:3px 0;}
+  .sim{background:#fff3cd;border:1px solid #ffe08a;color:#7a5b00;padding:8px 12px;border-radius:4px;
+    font-size:11px;margin:10px 0;}
+  table{width:100%;border-collapse:collapse;margin:10px 0;}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#fafafa;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);}
+  .sev{display:inline-block;padding:2px 8px;border-radius:3px;color:#fff;font-size:10px;
+    text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+  .card{border:1px solid var(--line);border-radius:5px;padding:12px 14px;margin:10px 0;}
+  .mono{font-family:"SFMono-Regular",Consolas,monospace;font-size:10.5px;background:#f6f6f6;
+    border:1px solid var(--line);border-radius:4px;padding:8px;white-space:pre-wrap;word-break:break-all;}
+  .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;}
+  .kpi .box{flex:1;min-width:90px;border:1px solid var(--line);border-radius:5px;padding:10px;text-align:center;}
+  .kpi .box .n{font-size:24px;font-weight:700;color:var(--accent);}
+  .kpi .box .l{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.5px;}
+  .legal{font-size:10.5px;color:var(--muted);border-left:3px solid var(--accent);padding:6px 12px;background:#fafafa;}
+  footer{margin-top:30px;font-size:10px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;}
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <div class="brand">{{ org }}</div>
+    <div class="mode-chip">{% block modelabel %}Assessment{% endblock %}</div>
+  </div>
+  <h1>{{ engagement.name }}</h1>
+  <div class="meta">
+    <div><strong>Author:</strong> {{ author }}</div>
+    <div><strong>Operator:</strong> {{ engagement.operator }}</div>
+    <div><strong>Generated:</strong> {{ generated_at.strftime("%Y-%m-%d %H:%M UTC") }}</div>
+    {% if authorization %}
+    <div><strong>Scope / perimeter:</strong>
+      {{ authorization.targets | map(attribute='value') | join(', ') }}</div>
+    <div><strong>Authorization:</strong> {{ authorization.authorization_ref }}
+      (signed off by {{ authorization.authorizing_party }})</div>
+    <div><strong>Validity:</strong> {{ authorization.valid_from.strftime("%Y-%m-%d") }}
+      → {{ authorization.valid_until.strftime("%Y-%m-%d") }}</div>
+    {% else %}
+    <div><strong>Authorization:</strong> none recorded</div>
+    {% endif %}
+  </div>
+</section>
+
+<div style="page-break-after:always"></div>
+
+{% if simulated %}
+<div class="sim"><strong>Note:</strong> one or more actions ran in <em>simulation</em> mode
+(the underlying tool was not installed on the host). Results are illustrative, not live.</div>
+{% endif %}
+
+<h2>Executive summary</h2>
+<p>{{ summary }}</p>
+<div class="kpi">
+  <div class="box"><div class="n">{{ runs|length }}</div><div class="l">Actions</div></div>
+  <div class="box"><div class="n">{{ findings|length }}</div><div class="l">Findings</div></div>
+  <div class="box"><div class="n">{{ counts.critical }}</div><div class="l">Critical</div></div>
+  <div class="box"><div class="n">{{ counts.high }}</div><div class="l">High</div></div>
+</div>
+
+<h2>Authorization &amp; legal scope</h2>
+<div class="legal">
+{% if authorization %}
+  All activity in this report was conducted under written authorization
+  <strong>{{ authorization.authorization_ref }}</strong>, granted by
+  <strong>{{ authorization.authorizing_party }}</strong>, valid
+  {{ authorization.valid_from.strftime("%Y-%m-%d") }} to
+  {{ authorization.valid_until.strftime("%Y-%m-%d") }}, limited to the perimeter:
+  {{ authorization.targets | map(attribute='value') | join(', ') }}.
+  Every offensive action is recorded in the engagement's immutable, hash-chained audit log.
+{% else %}
+  No scope authorization is recorded for this engagement. Only passive/defensive
+  actions can run without one.
+{% endif %}
+</div>
+
+<h2>Findings by severity</h2>
+<div style="color:var(--ink)">{{ severity_chart | safe }}</div>
+
+<h2>Findings</h2>
+<table>
+  <thead><tr><th>Severity</th><th>Finding</th><th>Asset</th><th>ATT&CK</th>{% block findhead %}{% endblock %}</tr></thead>
+  <tbody>
+  {% for f in findings %}
+    <tr>
+      <td><span class="sev" style="background:{{ sev_color[f.severity.value] }}">{{ f.severity.value }}</span></td>
+      <td><strong>{{ f.title }}</strong><br><span style="color:var(--muted)">{{ f.description }}</span></td>
+      <td>{{ f.asset }}</td>
+      <td>{{ f.attack_technique }}</td>
+      {% block findrow scoped %}{% endblock %}
+    </tr>
+  {% else %}
+    <tr><td colspan="5" style="color:var(--muted)">No findings recorded.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Technical detail by action</h2>
+{% for r in runs %}
+<div class="card">
+  <strong>{{ r.plugin }}</strong> — target <code>{{ r.target or "n/a" }}</code>
+  — status {{ r.status.value }} — techniques {{ r.attack_techniques | join(", ") }}
+  {% if r.command %}<div class="mono">$ {{ r.command }}</div>{% endif %}
+  {% if r.raw_output %}<details><summary>Raw output (annex)</summary>
+    <div class="mono">{{ r.raw_output[:4000] }}</div></details>{% endif %}
+</div>
+{% endfor %}
+
+<h2>MITRE ATT&amp;CK mapping</h2>
+<table>
+  <thead><tr><th>Technique</th><th>Name</th><th>Tactic</th></tr></thead>
+  <tbody>
+  {% for t in attack_matrix %}
+    <tr><td>{{ t.id }}</td><td>{{ t.name }}</td><td>{{ t.tactic }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% block remediation %}{% endblock %}
+
+<footer>
+  {{ org }} · {{ engagement.name }} · Confidential · Generated {{ generated_at.strftime("%Y-%m-%d") }}
+  by {{ author }}. For the authorized recipient only.
+</footer>
+
+</body>
+</html>

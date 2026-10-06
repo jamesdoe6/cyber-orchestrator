@@ -1,0 +1,27 @@
+# --- Core API ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Persistence ---
+SQLAlchemy==2.0.36
+# PostgreSQL driver (used when DATABASE_URL points at postgres://).
+psycopg[binary]==3.2.3
+
+# --- Async task scheduling for long-running scans ---
+APScheduler==3.11.0
+
+# --- Reporting (HTML -> PDF) ---
+Jinja2==3.1.5
+weasyprint==63.1
+
+# --- Tool integration helpers ---
+# Docker SDK is optional at runtime; only needed for containerised tools.
+docker==7.1.0
+
+# --- Update module (MITRE ATT&CK STIX / NVD feeds) ---
+httpx==0.28.1
+
+# --- Dev / test ---
+pytest==8.3.4

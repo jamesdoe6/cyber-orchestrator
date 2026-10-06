@@ -1,0 +1,27 @@
+{% extends "_base.html" %}
+{% block doctitle %}Defensive Review — {{ engagement.name }}{% endblock %}
+{% block accent %}#0b5e8a{% endblock %}
+{% block accent2 %}#1f9d6b{% endblock %}
+{% block modelabel %}Defensive / Blue{% endblock %}
+
+{% block findhead %}<th>Remediation</th>{% endblock %}
+{% block findrow %}<td style="color:var(--muted)">{{ f.remediation }}</td>{% endblock %}
+
+{% block remediation %}
+<h2>Prioritized remediation plan</h2>
+<table>
+  <thead><tr><th>#</th><th>Severity</th><th>Finding</th><th>Recommended action</th></tr></thead>
+  <tbody>
+  {% for f in findings if f.remediation %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td><span class="sev" style="background:{{ sev_color[f.severity.value] }}">{{ f.severity.value }}</span></td>
+      <td>{{ f.title }}</td>
+      <td>{{ f.remediation }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" style="color:var(--muted)">No remediation items.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

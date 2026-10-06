@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cyber Orchestrator</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2a323d; --ink:#e6edf3;
+    --muted:#8b98a5; --accent:#e24a00; --accent2:#b00020; --ok:#2ea043; --warn:#d79f00;
+  }
+  body.mode-defense{ --accent:#1f9d6b; --accent2:#0b5e8a; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);
+       display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+  a{color:var(--accent);}
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);
+         background:var(--panel);}
+  header .logo{font-weight:800;letter-spacing:1px;}
+  header .logo b{color:var(--accent);}
+  .spacer{flex:1;}
+  .badge{font-size:12px;padding:4px 10px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);}
+  .badge.ok{color:var(--ok);border-color:var(--ok);}
+  .badge.bad{color:#ff6b6b;border-color:#ff6b6b;}
+  select,input,textarea,button{font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--line);
+       border-radius:6px;padding:7px 10px;}
+  button{cursor:pointer;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  button.primary:disabled{opacity:.4;cursor:not-allowed;}
+  button.ghost{background:transparent;}
+  main{flex:1;display:grid;grid-template-columns:230px 1fr 300px;overflow:hidden;}
+  .col{overflow:auto;padding:14px;}
+  .sidebar{border-right:1px solid var(--line);background:var(--panel);}
+  .rightbar{border-left:1px solid var(--line);background:var(--panel);}
+  .cat{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:14px 0 6px;}
+  .plugin{padding:9px 10px;border-radius:7px;border:1px solid transparent;margin-bottom:5px;cursor:pointer;}
+  .plugin:hover{background:var(--panel2);}
+  .plugin.active{background:var(--panel2);border-color:var(--accent);}
+  .plugin .nm{font-weight:600;font-size:14px;}
+  .plugin .pv{font-size:11px;color:var(--muted);}
+  h2{margin:0 0 4px;font-size:20px;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .progress{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:10px 0 18px;}
+  .progress > i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s;}
+  .step{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:16px;}
+  .step h3{margin:0 0 4px;}
+  .step .help{color:var(--muted);font-size:13px;margin-bottom:12px;}
+  .step .expect{font-size:12px;color:var(--warn);margin-top:10px;}
+  .field{margin:12px 0;}
+  .field label{display:block;font-size:13px;margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;}
+  .field .fhelp{font-size:11px;color:var(--muted);margin-top:4px;}
+  .nav{display:flex;gap:10px;margin-top:16px;}
+  .steps-dots{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+  .dot{font-size:11px;padding:3px 9px;border-radius:12px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);}
+  .dot.done{color:var(--ok);border-color:var(--ok);}
+  .dot.current{color:#fff;background:var(--accent);border-color:var(--accent);}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;}
+  .sev{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;color:#fff;text-transform:uppercase;}
+  .mono{font-family:Consolas,monospace;font-size:11px;background:#0b0e13;border:1px solid var(--line);
+        border-radius:6px;padding:8px;white-space:pre-wrap;max-height:200px;overflow:auto;}
+  .att{border:1px solid var(--line);border-radius:7px;padding:10px;margin-bottom:8px;background:var(--panel2);}
+  .att .tid{color:var(--accent);font-weight:700;}
+  .att .tac{font-size:11px;color:var(--muted);}
+  footer{display:flex;border-top:1px solid var(--line);background:var(--panel);}
+  footer button{flex:1;border:0;border-radius:0;padding:14px;font-size:15px;font-weight:700;background:var(--panel);
+    color:var(--muted);border-top:3px solid transparent;}
+  footer button.on{color:#fff;}
+  footer button#tab-attack.on{background:linear-gradient(0deg,rgba(226,74,0,.18),transparent);border-top-color:#e24a00;color:#ff7a3c;}
+  footer button#tab-defense.on{background:linear-gradient(0deg,rgba(31,157,107,.18),transparent);border-top-color:#1f9d6b;color:#4fd3a0;}
+  dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;width:min(560px,92vw);padding:0;}
+  dialog header{border-radius:12px 12px 0 0;}
+  dialog .body{padding:16px;max-height:70vh;overflow:auto;}
+  .row{display:flex;gap:8px;align-items:center;}
+  .target-row{display:grid;grid-template-columns:120px 1fr auto;gap:8px;margin-bottom:6px;}
+  .muted{color:var(--muted);}
+  .pill{display:inline-block;font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:10px;margin:2px;}
+</style>
+</head>
+<body class="mode-attack">
+<header>
+  <div class="logo">CYBER<b>ORCH</b></div>
+  <span class="muted" style="font-size:12px">authorized testing only</span>
+  <div class="spacer"></div>
+  <select id="engagementSel" title="Active engagement"></select>
+  <button class="ghost" id="newEngBtn">+ Engagement</button>
+  <button class="ghost" id="scopeBtn">Scope</button>
+  <span class="badge" id="scopeBadge">no scope</span>
+  <span class="badge" id="auditBadge">audit —</span>
+  <button class="ghost" id="reportsBtn">Reports</button>
+</header>
+
+<main>
+  <aside class="col sidebar" id="sidebar"><div class="muted">Select or create an engagement.</div></aside>
+
+  <section class="col" id="center">
+    <div class="muted">Pick a module from the left to start the guided assistant.</div>
+  </section>
+
+  <aside class="col rightbar">
+    <div class="cat">MITRE ATT&amp;CK — module</div>
+    <div id="attackModule"><div class="muted">—</div></div>
+    <div class="cat">Findings this engagement</div>
+    <div id="findSummary"><div class="muted">—</div></div>
+  </aside>
+</main>
+
+<footer>
+  <button id="tab-attack" class="on" onclick="setMode('attack')">⚔ ATTACK</button>
+  <button id="tab-defense" onclick="setMode('defense')">🛡 DEFENSE</button>
+</footer>
+
+<!-- New engagement dialog -->
+<dialog id="engDlg">
+  <header><strong>New engagement</strong></header>
+  <div class="body">
+    <div class="field"><label>Name</label><input id="engName" placeholder="Q4 external assessment"></div>
+    <div class="field"><label>Operator</label><input id="engOperator" placeholder="your name"></div>
+    <div class="field"><label>Mode</label>
+      <select id="engMode"><option value="attack">Attack</option><option value="defense">Defense</option></select></div>
+    <div class="nav"><button class="primary" onclick="createEngagement()">Create</button>
+      <button class="ghost" onclick="engDlg.close()">Cancel</button></div>
+  </div>
+</dialog>
+
+<!-- Scope dialog -->
+<dialog id="scopeDlg">
+  <header><strong>Declare authorized perimeter</strong></header>
+  <div class="body">
+    <p class="muted" style="font-size:12px">No active/offensive action can run until an accepted authorization covers the target. This is enforced server-side and written to the immutable audit log.</p>
+    <div class="field"><label>Authorization reference (written mandate)</label><input id="scRef" placeholder="MANDATE-2026-001"></div>
+    <div class="field"><label>Authorizing party</label><input id="scParty" placeholder="Client CISO / signed-off by"></div>
+    <div class="row" style="gap:16px">
+      <div class="field" style="flex:1"><label>Valid from</label><input id="scFrom" type="datetime-local"></div>
+      <div class="field" style="flex:1"><label>Valid until</label><input id="scUntil" type="datetime-local"></div>
+    </div>
+    <div class="field"><label>Targets</label><div id="targets"></div>
+      <button class="ghost" onclick="addTargetRow()">+ add target</button></div>
+    <div class="nav"><button class="primary" onclick="saveScope()">Accept &amp; save</button>
+      <button class="ghost" onclick="scopeDlg.close()">Cancel</button></div>
+  </div>
+</dialog>
+
+<!-- Reports dialog -->
+<dialog id="repDlg">
+  <header><strong>Report library</strong></header>
+  <div class="body">
+    <button class="primary" onclick="genReport()">Generate report for current engagement</button>
+    <div id="repList" style="margin-top:12px"></div>
+  </div>
+</dialog>
+
+<script>
+const API = "";
+let state = { mode:"attack", engagement:null, plugins:[], plugin:null, step:0, params:{} };
+
+const $ = s => document.querySelector(s);
+async function api(path, opts){ const r = await fetch(API+path, opts); return r.json(); }
+async function post(path, body){ return api(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); }
+
+function setMode(m){
+  state.mode=m; state.plugin=null; state.step=0; state.params={};
+  document.body.className = "mode-"+m;
+  $("#tab-attack").classList.toggle("on", m==="attack");
+  $("#tab-defense").classList.toggle("on", m==="defense");
+  loadPlugins();
+  renderCenter();
+  renderAttackModule();
+}
+
+async function refreshEngagements(){
+  const list = await api("/api/engagements");
+  const sel = $("#engagementSel"); sel.innerHTML="";
+  list.forEach(e=>{ const o=document.createElement("option"); o.value=e.id;
+    o.textContent=`#${e.id} ${e.name} [${e.mode}]`; o.dataset.mode=e.mode; sel.appendChild(o); });
+  if(list.length){ selectEngagement(list.find(e=>e.id==sel.value)||list[0]); }
+  sel.onchange=()=>{ const e=list.find(x=>x.id==sel.value); selectEngagement(e); };
+}
+function selectEngagement(e){
+  state.engagement=e;
+  if(e && e.mode!==state.mode) setMode(e.mode);
+  updateScopeBadge(); refreshAudit(); renderFindings();
+}
+function updateScopeBadge(){
+  const b=$("#scopeBadge"); const e=state.engagement;
+  if(e && e.has_authorization){ b.textContent="scope ✓"; b.className="badge ok"; }
+  else { b.textContent="no scope"; b.className="badge bad"; }
+}
+async function refreshAudit(){
+  const v=await api("/api/audit/verify"); const b=$("#auditBadge");
+  b.textContent = v.valid?`audit ✓ (${v.verified})`:"audit BROKEN";
+  b.className = "badge "+(v.valid?"ok":"bad");
+}
+
+async function loadPlugins(){
+  const data = await api("/api/plugins?mode="+state.mode);
+  state.plugins = data.plugins;
+  const groups = {};
+  state.plugins.forEach(p=>{ (groups[p.category]=groups[p.category]||[]).push(p); });
+  const sb=$("#sidebar"); sb.innerHTML="";
+  Object.keys(groups).sort().forEach(cat=>{
+    const h=document.createElement("div"); h.className="cat"; h.textContent=cat; sb.appendChild(h);
+    groups[cat].forEach(p=>{
+      const d=document.createElement("div"); d.className="plugin"+(state.plugin&&state.plugin.slug===p.slug?" active":"");
+      d.innerHTML=`<div class="nm">${p.name}</div><div class="pv">privilege: ${p.privilege}</div>`;
+      d.onclick=()=>selectPlugin(p); sb.appendChild(d);
+    });
+  });
+}
+function selectPlugin(p){ state.plugin=p; state.step=0; state.params={};
+  p.params.forEach(pr=>{ if(pr.default!==null && pr.default!==undefined) state.params[pr.name]=pr.default; });
+  loadPlugins(); renderCenter(); renderAttackModule(); }
+
+function renderCenter(){
+  const c=$("#center");
+  if(!state.engagement){ c.innerHTML='<div class="muted">Create an engagement to begin.</div>'; return; }
+  if(!state.plugin){ c.innerHTML='<div class="muted">Select a module from the left to launch the guided assistant.</div>'; return; }
+  const p=state.plugin, steps=p.steps, i=state.step, step=steps[i];
+  const pct=Math.round(((i)/(steps.length))*100);
+  const dots=steps.map((s,idx)=>`<span class="dot ${idx<i?'done':idx===i?'current':''}">${idx+1}. ${s.title.replace(/^\d+\.\s*/,'')}</span>`).join("");
+  const fields=(step.params||[]).map(name=>{
+    const pr=p.params.find(x=>x.name===name); if(!pr) return "";
+    const v=state.params[name]??""; let input;
+    if(pr.type==="bool") input=`<input type="checkbox" ${v?'checked':''} onchange="setParam('${name}',this.checked)">`;
+    else if(pr.type==="choice") input=`<select onchange="setParam('${name}',this.value)">`+pr.choices.map(ch=>`<option ${ch===v?'selected':''}>${ch}</option>`).join("")+`</select>`;
+    else if(pr.type==="textarea") input=`<textarea rows="5" oninput="setParam('${name}',this.value)">${v}</textarea>`;
+    else input=`<input value="${v}" oninput="setParam('${name}',this.value)">`;
+    return `<div class="field"><label>${pr.label}${pr.required?' *':''}</label>${input}<div class="fhelp">${pr.help||""}</div></div>`;
+  }).join("");
+  const last = i===steps.length-1;
+  c.innerHTML=`
+    <h2>${p.name}</h2><div class="sub">${p.description}</div>
+    <div class="steps-dots">${dots}</div>
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <div class="step">
+      <h3>${step.title}</h3><div class="help">${step.help}</div>
+      ${fields||'<div class="muted">Review the resolved action, then launch.</div>'}
+      ${step.expect?`<div class="expect">Expected: ${step.expect}</div>`:""}
+      <div class="nav">
+        <button class="ghost" onclick="prevStep()" ${i===0?'disabled':''}>← Back</button>
+        ${last
+          ? `<button class="primary" id="launchBtn" onclick="launch()">▶ Launch</button>`
+          : `<button class="primary" onclick="nextStep()">Next →</button>`}
+      </div>
+    </div>
+    <div id="runResult"></div>`;
+}
+function setParam(n,v){ state.params[n]=v; }
+function nextStep(){ if(state.step<state.plugin.steps.length-1){state.step++;renderCenter();} }
+function prevStep(){ if(state.step>0){state.step--;renderCenter();} }
+
+function renderAttackModule(){
+  const box=$("#attackModule");
+  if(!state.plugin){ box.innerHTML='<div class="muted">—</div>'; return; }
+  box.innerHTML=(state.plugin.attack_detail||[]).map(t=>
+    `<div class="att"><span class="tid">${t.id}</span> ${t.name}<div class="tac">${t.tactic}</div></div>`).join("")
+    || '<div class="muted">No technique mapping.</div>';
+}
+
+async function launch(){
+  const btn=$("#launchBtn"); btn.disabled=true; btn.textContent="Running…";
+  const r=await post(`/api/engagements/${state.engagement.id}/runs`,{plugin:state.plugin.slug,params:state.params});
+  const res=$("#runResult");
+  if(r.detail){ res.innerHTML=`<p style="color:#ff6b6b">Error: ${r.detail}</p>`; btn.disabled=false; btn.textContent="▶ Launch"; return; }
+  const blocked = r.status==="blocked";
+  const sim = r.parsed && r.parsed._simulated;
+  res.innerHTML = `
+    <h3 style="margin-top:18px">Result — <span style="color:${blocked?'#ff6b6b':'var(--ok)'}">${r.status}</span>
+      ${sim?'<span class="pill">simulated</span>':''}</h3>
+    ${blocked?`<p style="color:#ff6b6b">Blocked by scope guard: ${r.error}</p>`:""}
+    ${r.command?`<div class="mono">$ ${r.command}</div>`:""}
+    ${findingsTable(r.findings||[])}
+    ${r.raw_output?`<details><summary class="muted" style="cursor:pointer;margin-top:8px">raw output</summary><div class="mono">${escapeHtml((r.raw_output||'').slice(0,3000))}</div></details>`:""}`;
+  btn.disabled=false; btn.textContent="▶ Launch again";
+  refreshAudit(); renderFindings(); refreshEngagements();
+}
+function sevColor(s){return {critical:"#b00020",high:"#e24a00",medium:"#d79f00",low:"#2e7d32",info:"#607d8b"}[s]||"#607d8b";}
+function findingsTable(fs){
+  if(!fs.length) return '<p class="muted">No findings.</p>';
+  return `<table><thead><tr><th>Sev</th><th>Finding</th><th>Asset</th><th>ATT&CK</th></tr></thead><tbody>`+
+    fs.map(f=>`<tr><td><span class="sev" style="background:${sevColor(f.severity)}">${f.severity}</span></td>
+      <td><b>${escapeHtml(f.title)}</b><br><span class="muted">${escapeHtml(f.description||"")}</span>
+      ${f.remediation?`<br><span style="color:var(--ok);font-size:12px">↳ ${escapeHtml(f.remediation)}</span>`:""}</td>
+      <td>${escapeHtml(f.asset||"")}</td><td>${f.attack_technique||""}</td></tr>`).join("")+`</tbody></table>`;
+}
+async function renderFindings(){
+  const box=$("#findSummary"); if(!state.engagement){box.innerHTML='<div class="muted">—</div>';return;}
+  const runs=await api(`/api/engagements/${state.engagement.id}/runs`);
+  const counts={critical:0,high:0,medium:0,low:0,info:0};
+  runs.forEach(r=>(r.findings||[]).forEach(f=>counts[f.severity]++));
+  box.innerHTML=Object.entries(counts).map(([k,v])=>`<span class="pill" style="border-color:${sevColor(k)}">${k}: ${v}</span>`).join("");
+}
+function escapeHtml(s){return (s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+/* ---- engagement / scope / reports dialogs ---- */
+$("#newEngBtn").onclick=()=>engDlg.showModal();
+async function createEngagement(){
+  const body={name:$("#engName").value||"Untitled",operator:$("#engOperator").value||"operator",mode:$("#engMode").value};
+  await post("/api/engagements",body); engDlg.close(); await refreshEngagements();
+}
+$("#scopeBtn").onclick=()=>{ if(!state.engagement){alert("Create/select an engagement first.");return;}
+  $("#targets").innerHTML=""; addTargetRow(); scopeDlg.showModal(); };
+function addTargetRow(type="cidr",value=""){
+  const d=document.createElement("div"); d.className="target-row";
+  d.innerHTML=`<select class="t-type">${["ip","cidr","host","domain","url","ssid"].map(t=>`<option ${t===type?'selected':''}>${t}</option>`).join("")}</select>
+    <input class="t-val" placeholder="192.0.2.0/24 / example.com / MyLab-SSID" value="${value}">
+    <button class="ghost" onclick="this.parentNode.remove()">✕</button>`;
+  $("#targets").appendChild(d);
+}
+async function saveScope(){
+  const targets=[...document.querySelectorAll(".target-row")].map(r=>({type:r.querySelector(".t-type").value,value:r.querySelector(".t-val").value})).filter(t=>t.value);
+  const body={authorization_ref:$("#scRef").value,authorizing_party:$("#scParty").value,targets,
+    valid_from:new Date($("#scFrom").value||Date.now()).toISOString(),
+    valid_until:new Date($("#scUntil").value||Date.now()+86400000).toISOString(),accept:true};
+  const r=await post(`/api/engagements/${state.engagement.id}/authorization`,body);
+  if(r.id){ scopeDlg.close(); state.engagement.has_authorization=true; updateScopeBadge(); refreshAudit(); }
+  else alert("Error: "+JSON.stringify(r));
+}
+$("#reportsBtn").onclick=async()=>{ await listReports(); repDlg.showModal(); };
+async function genReport(){ if(!state.engagement)return; await post(`/api/engagements/${state.engagement.id}/report`,{}); await listReports(); refreshAudit(); }
+async function listReports(){
+  const data=await api("/api/reports");
+  $("#repList").innerHTML=data.reports.map(r=>`<div class="att"><b>#${r.id}</b> engagement ${r.engagement_id} [${r.mode}]
+    <a href="/api/reports/${r.id}/download?fmt=html" target="_blank">HTML</a>
+    ${r.pdf_path?`· <a href="/api/reports/${r.id}/download?fmt=pdf" target="_blank">PDF</a>`:'<span class="muted">· PDF n/a</span>'}</div>`).join("")||'<div class="muted">No reports yet.</div>';
+}
+
+/* ---- boot ---- */
+(async function(){ setMode("attack"); await refreshEngagements(); await refreshAudit(); })();
+</script>
+</body>
+</html>
