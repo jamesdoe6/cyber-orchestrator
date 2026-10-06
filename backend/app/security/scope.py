@@ -120,6 +120,13 @@ def check(
     if not (vf <= now <= vu):
         return ScopeDecision(False, f"outside_window: authorized {vf.date()}..{vu.date()}")
 
+    # Perimeter match is only meaningful when the action has a network target.
+    # Offline work (e.g. hash cracking on captured material) has none; it still
+    # required an accepted authorization + the kill-switch above, but there is
+    # no target to place in/out of scope.
+    if not target:
+        return ScopeDecision(True, "allowed_no_target")
+
     matched = _target_in_scope(target, auth.targets)
     if matched is None:
         return ScopeDecision(False, f"target_out_of_scope: '{target}' not in authorized perimeter")

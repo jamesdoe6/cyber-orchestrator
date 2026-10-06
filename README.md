@@ -44,6 +44,8 @@ sudo cyber-orchestrator/provisioning/provision.sh --minimal          # core + nm
 sudo cyber-orchestrator/provisioning/provision.sh --with-containers  # + Docker tools
 ```
 
+> **On WSL2 (Ubuntu)?** See [`docs/DEPLOY_WSL.md`](docs/DEPLOY_WSL.md) — everything works except Wi-Fi monitor mode.
+
 > Tools that aren't installed run in clearly-flagged **simulation mode**, so the
 > full workflow (wizard → scope guard → audit → findings → report) is testable
 > immediately, even before the toolchain is provisioned.
@@ -59,15 +61,32 @@ sudo cyber-orchestrator/provisioning/provision.sh --with-containers  # + Docker 
 5. **Generate a report** (themed HTML, PDF when WeasyPrint is installed) from
    the report library.
 
-## Shipped example modules (the validated pattern)
+## Shipped modules
 
-- **Attack — `nmap_scan`** (Network scan, *active*, T1046/T1018): guided port/
-  service discovery, XML parsing → per-port findings, risky-service escalation.
-- **Defense — `log_analysis`** (Log analysis, *passive*, T1110.001/T1078):
-  sshd brute-force & suspicious-success detection with prioritized remediation.
+Every module follows the same `BasePlugin` contract (guided wizard, scope level,
+ATT&CK mapping, parser → findings). Tools not installed run in flagged
+**simulation** mode.
 
-Both follow the same `BasePlugin` contract — duplicate it for the catalog in
-[`docs/TOOLS_CATALOG.md`](docs/TOOLS_CATALOG.md).
+**Attack**
+- *Reconnaissance / OSINT* (passive): `theharvester`, `amass`, `sherlock`, `dns_recon`, `whois`
+- *Network scan* (active): `nmap_scan`, `masscan`
+- *Vulnerability scan* (active): `nuclei`, `nikto`
+- *Web app pentest*: `whatweb` (active), `sqlmap` (offensive)
+- *Brute force / cracking* (offensive): `hydra`, `john`, `hashcat`
+- *Wifi* (offensive, host-only — not WSL): `wifite`
+- *Exploitation*: `searchsploit` (passive), `metasploit` (offensive)
+
+**Defense** (all passive/local)
+- *Intrusion detection*: `suricata_alerts` (eve.json)
+- *Hardening*: `lynis`
+- *Log analysis*: `log_analysis`
+- *Malware / forensics*: `yara`, `volatility`
+- *Threat intel (CTI)*: `cti_cve` (NVD feed)
+
+Add more by dropping a `BasePlugin` subclass in `app/plugins/attack|defense/` —
+the registry, UI, scope guard, audit and reporting pick it up with no core
+changes. Container/API tools (OpenVAS, Wazuh, MISP, BloodHound, C2) are listed
+in [`docs/TOOLS_CATALOG.md`](docs/TOOLS_CATALOG.md) as extension points.
 
 ## Project structure
 
