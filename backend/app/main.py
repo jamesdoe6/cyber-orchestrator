@@ -6,10 +6,12 @@ UI is served at ``/``.
 """
 from __future__ import annotations
 
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import settings
@@ -31,6 +33,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 app.include_router(engagements.router)
 app.include_router(plugins.router)
 app.include_router(runs.router)
@@ -46,9 +50,32 @@ async def _token_guard(request: Request, call_next):
     path = request.url.path
     if token and path.startswith("/api/") and path != "/api/health":
         supplied = request.headers.get("X-API-Token") or request.query_params.get("token")
-        if supplied != token:
+        if not supplied or not secrets.compare_digest(str(supplied), str(token)):
             return JSONResponse({"detail": "unauthorized"}, status_code=401)
     return await call_next(request)
+
+
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src https://fonts.gstatic.com data:; "
+    "img-src 'self' data:; connect-src 'self'; "
+    "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+)
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers["Content-Security-Policy"] = _CSP
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if request.url.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 _FRONTEND = Path(__file__).resolve().parent.parent.parent / "frontend" / "index.html"
 

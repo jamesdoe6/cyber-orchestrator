@@ -6,7 +6,7 @@
 
 It *wraps* the mature pentest / OSINT / threat-defense toolchain (nmap, nuclei, aircrack-ng, Suricata…) — it does **not** reimplement it. The value is the guided workflow, the blocking legal guardrails, the automatic MITRE ATT&CK mapping and the unified reporting that the ecosystem lacks.
 
-![status](https://img.shields.io/badge/status-MVP-blue) ![python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white) ![api](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white) ![bind](https://img.shields.io/badge/bind-127.0.0.1%20only-success) ![modules](https://img.shields.io/badge/modules-23-orange) ![tests](https://img.shields.io/badge/tests-passing-brightgreen) ![license](https://img.shields.io/badge/license-see%20repo-lightgrey)
+![status](https://img.shields.io/badge/status-MVP-blue) ![python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white) ![api](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white) ![bind](https://img.shields.io/badge/bind-127.0.0.1%20only-success) ![modules](https://img.shields.io/badge/modules-48-orange) ![security](https://img.shields.io/badge/hardened-CSP%20%7C%20token%20%7C%20audit-success) ![tests](https://img.shields.io/badge/tests-passing-brightgreen) ![license](https://img.shields.io/badge/license-see%20repo-lightgrey)
 
 </div>
 
@@ -40,6 +40,14 @@ The UI uses the **Liquid Glass** design system (luminous aurora background, tran
 13. [Tests](#-tests)
 
 ---
+
+## 🧰 Modules (48)
+
+**Attack (32)** — *Reconnaissance/OSINT*: theharvester, amass, subfinder, sherlock, maigret, holehe, phoneinfoga, dns_recon, whois, waybackurls, exiftool · *Network*: nmap_scan, masscan, enum4linux · *Vuln scan*: nuclei, nikto, httpx_probe, wafw00f · *Web*: whatweb, ffuf, wpscan, sslscan, dalfox, sqlmap · *Brute/crack*: hydra, john, hashcat, kerbrute · *Wifi*: wifite · *Exploitation*: searchsploit, metasploit, netexec
+
+**Defense (16)** — *IDS/monitoring*: suricata_alerts, pcap_analysis · *Hardening*: lynis, ssh_audit · *Log analysis*: log_analysis · *Malware/forensics*: yara, volatility, file_triage, binwalk, olevba, clamav, chkrootkit · *Vuln mgmt*: trivy · *Threat hunting*: gitleaks, osquery · *CTI*: cti_cve
+
+Tools not installed run in flagged **simulation** mode. Full per-tool usage is in the reference section below.
 
 ## ✨ What it does
 
@@ -320,6 +328,17 @@ Each module declares one. It decides what the scope guard enforces:
 4. **Authorization in every report** — cover page + a dedicated legal section carry perimeter, mandate, party, dates, author.
 
 ---
+
+## 🔒 Application security
+
+The platform itself is hardened (verified by an automated test pass):
+- **No shell**: tools run via `subprocess` argv lists — never `shell=True`; **argument-injection guard** rejects values starting with `-` or containing control characters, with length caps.
+- **SQL**: SQLAlchemy ORM, fully parameterized.
+- **HTTP headers**: strict `Content-Security-Policy`, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy`; `Cache-Control: no-store` on the API.
+- **Auth**: optional `CO_API_TOKEN` with **constant-time** comparison.
+- **Path containment**: report downloads can only serve files inside the report store.
+- **DoS bounds**: per-run subprocess timeout; stored output capped (500 KB).
+- **Immutable audit**: hash-chained, tamper-evident, never deleted (even when engagements/scopes are).
 
 ## 📄 Reports
 

@@ -33,7 +33,32 @@ def _validate_params(plugin: BasePlugin, params: dict) -> dict:
             cleaned[p.name] = bool(cleaned.get(p.name))
         if p.type == "choice" and cleaned.get(p.name) and cleaned[p.name] not in p.choices:
             raise ValueError(f"invalid choice for {p.name}: {cleaned[p.name]}")
+    _harden_params(plugin, cleaned)
     return cleaned
+
+
+# Hard caps to bound memory/DB and prevent argument injection into wrapped CLIs.
+_MAX_STR = 2048
+_MAX_TEXTAREA = 8192
+
+
+def _harden_params(plugin: BasePlugin, cleaned: dict) -> None:
+    for p in plugin.meta.params:
+        v = cleaned.get(p.name)
+        if not isinstance(v, str) or not v:
+            continue
+        # Reject NUL and control chars (newline/tab allowed only in textarea).
+        allowed_ctrl = {"\n", "\t", "\r"} if p.type == "textarea" else set()
+        if any((ord(ch) < 32 and ch not in allowed_ctrl) or ord(ch) == 127 for ch in v):
+            raise ValueError(f"{p.name}: control characters are not allowed")
+        limit = _MAX_TEXTAREA if p.type == "textarea" else _MAX_STR
+        if len(v) > limit:
+            raise ValueError(f"{p.name}: value too long (max {limit})")
+        # Argument-injection guard: a free-form value passed to a wrapped binary
+        # must not masquerade as a CLI flag. (choice values are whitelisted;
+        # textarea is not a single argv token.)
+        if plugin.meta.binary and p.type == "string" and v.lstrip().startswith("-"):
+            raise ValueError(f"{p.name}: value may not start with '-' (argument-injection guard)")
 
 
 def launch(
@@ -100,7 +125,8 @@ def launch(
         parsed = plugin.parse(raw, params)
         drafts = plugin.findings(parsed, params)
 
-        run.raw_output = raw
+        _MAX_RAW = 500_000
+        run.raw_output = raw if len(raw) <= _MAX_RAW else raw[:_MAX_RAW] + "\n...[truncated]"
         run.parsed = {**parsed, "_simulated": getattr(result, "simulated", False)}
         run.exit_code = result.exit_code
         run.status = RunStatus.completed

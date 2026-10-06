@@ -97,7 +97,7 @@ class Run(Base):
     __tablename__ = "runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"))
+    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"), index=True)
     plugin: Mapped[str] = mapped_column(String(120))               # plugin slug
     target: Mapped[str] = mapped_column(String(400), default="")
     params: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -107,7 +107,7 @@ class Run(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     exit_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    raw_output: Mapped[str] = mapped_column(Text, default="")
+    raw_output: Mapped[str] = mapped_column(Text, default="", deferred=True)
     parsed: Mapped[dict] = mapped_column(JSON, default=dict)        # structured result
     error: Mapped[str] = mapped_column(Text, default="")
 
@@ -119,8 +119,8 @@ class Finding(Base):
     __tablename__ = "findings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"))
-    run_id: Mapped[int | None] = mapped_column(ForeignKey("runs.id"), nullable=True)
+    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"), index=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("runs.id"), nullable=True, index=True)
 
     title: Mapped[str] = mapped_column(String(300))
     description: Mapped[str] = mapped_column(Text, default="")
@@ -149,7 +149,7 @@ class AuditEvent(Base):
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # Exact ISO string hashed into the chain (round-trips regardless of DB tz handling).
     ts_iso: Mapped[str] = mapped_column(String(40), default="")
-    engagement_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    engagement_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     actor: Mapped[str] = mapped_column(String(200), default="")
     action: Mapped[str] = mapped_column(String(120))                # e.g. "run.launch"
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -161,7 +161,7 @@ class Report(Base):
     __tablename__ = "reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"))
+    engagement_id: Mapped[int] = mapped_column(ForeignKey("engagements.id"), index=True)
     mode: Mapped[Mode] = mapped_column(Enum(Mode))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     html_path: Mapped[str] = mapped_column(String(500), default="")

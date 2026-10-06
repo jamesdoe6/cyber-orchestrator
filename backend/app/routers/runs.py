@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import orchestrator
 from ..database import get_db
@@ -32,7 +32,8 @@ def launch_run(eid: int, body: RunCreate, db: Session = Depends(get_db)):
 
 @router.get("", response_model=list[RunOut])
 def list_runs(eid: int, db: Session = Depends(get_db)):
-    return db.query(Run).filter(Run.engagement_id == eid).order_by(Run.id.desc()).all()
+    return (db.query(Run).options(selectinload(Run.findings))
+            .filter(Run.engagement_id == eid).order_by(Run.id.desc()).all())
 
 
 @router.get("/{run_id}", response_model=RunOut)

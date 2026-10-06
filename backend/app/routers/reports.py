@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path as _Path
+
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -43,5 +45,12 @@ def download_report(rid: int, fmt: str = "html", db: Session = Depends(get_db)):
     path = r.pdf_path if fmt == "pdf" else r.html_path
     if not path:
         raise HTTPException(404, f"{fmt} not available for this report")
+    # Defense-in-depth: only ever serve files from within the reports directory.
+    from ..config import settings
+    resolved = _Path(path).resolve()
+    if not str(resolved).startswith(str(_Path(settings.paths_reports).resolve())):
+        raise HTTPException(403, "path outside report store")
+    if not resolved.exists():
+        raise HTTPException(404, "report file missing")
     media = "application/pdf" if fmt == "pdf" else "text/html"
-    return FileResponse(path, media_type=media)
+    return FileResponse(str(resolved), media_type=media)
