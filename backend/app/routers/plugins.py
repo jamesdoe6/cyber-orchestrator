@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from ..mitre import enrich
 from ..plugins import registry
+from ..plugins.base import ToolRunner
 
 router = APIRouter(prefix="/api/plugins", tags=["plugins"])
 
@@ -17,6 +18,7 @@ def list_plugins(mode: str | None = None):
             continue
         d = p.meta.to_dict()
         d["attack_detail"] = enrich(p.meta.attack_techniques)
+        d["installed"] = p.meta.binary is None or ToolRunner.available(p.meta.binary)
         out.append(d)
     return {"plugins": out}
 
@@ -28,4 +30,5 @@ def get_plugin(slug: str):
         return {"error": "not_found"}
     d = p.meta.to_dict()
     d["attack_detail"] = enrich(p.meta.attack_techniques)
+    d["installed"] = p.meta.binary is None or ToolRunner.available(p.meta.binary)
     return d

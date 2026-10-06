@@ -70,6 +70,32 @@ def cancel_run(eid: int, run_id: int, db: Session = Depends(get_db)):
     return {"ok": True, "status": "cancelling"}
 
 
+@router.post("/cancel-all")
+def cancel_all(eid: int, db: Session = Depends(get_db)):
+    """Stop every running/queued scan of this engagement (global Stop)."""
+    e = db.get(Engagement, eid)
+    if not e:
+        raise HTTPException(404, "engagement not found")
+    active = (db.query(Run)
+              .filter(Run.engagement_id == eid,
+                      Run.status.in_([RunStatus.pending, RunStatus.running])).all())
+    for run in active:
+        run_control.cancel(run.id)  # kills running subprocesses
+    queued = (db.query(Run)
+              .filter(Run.engagement_id == eid, Run.status == RunStatus.pending)
+              .update({Run.status: RunStatus.cancelled, Run.error: "cancelled by operator (stop all)",
+                       Run.finished_at: datetime.now(timezone.utc)}, synchronize_session=False))
+    db.commit()
+    if active:
+        audit.record(db, action="run.cancel.all", actor=e.operator, engagement_id=eid,
+                     detail={"count": len(active)})
+    for run in active:
+        if run.status == RunStatus.pending:  # was queued -> now cancelled
+            bus.publish(eid, {"type": "done", "run_id": run.id, "plugin": run.plugin,
+                              "status": "cancelled", "error": "cancelled by operator", "findings": 0})
+    return {"ok": True, "requested": len(active), "cancelled_queued": queued}
+
+
 @router.get("", response_model=list[RunOut])
 def list_runs(eid: int, db: Session = Depends(get_db)):
     return (db.query(Run).options(selectinload(Run.findings))

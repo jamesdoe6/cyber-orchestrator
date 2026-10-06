@@ -199,3 +199,34 @@ def test_cancel_queued_run(client):
     resp = client.post(f"/api/engagements/{e['id']}/runs/{rid}/cancel").json()
     assert resp["status"] == "cancelled"
     assert client.get(f"/api/engagements/{e['id']}/runs/{rid}").json()["status"] == "cancelled"
+
+
+def test_installed_flag(client):
+    plugins = {p["slug"]: p for p in client.get("/api/plugins").json()["plugins"]}
+    # pure-Python module (no binary) is always "real"
+    assert plugins["log_analysis"]["installed"] is True
+    # a wrapped binary not installed in this environment reports False (-> simulated)
+    assert plugins["nmap_scan"]["installed"] is False
+
+
+def test_cancel_all(client):
+    import time
+    _register_sleep_plugin()
+    e = client.post("/api/engagements", json={"name": "ca", "mode": "attack", "operator": "t"}).json()
+    _authorize(client, e["id"])
+    ids = [client.post(f"/api/engagements/{e['id']}/runs",
+                       json={"plugin": "_sleep_test", "params": {"target": "192.0.2.10"}}).json()["id"]
+           for _ in range(3)]
+    # let them start
+    time.sleep(0.6)
+    resp = client.post(f"/api/engagements/{e['id']}/runs/cancel-all").json()
+    assert resp["ok"] and resp["requested"] >= 1
+    # all should become cancelled quickly
+    start = time.time()
+    while time.time() - start < 8:
+        st = {r["id"]: r["status"] for r in client.get(f"/api/engagements/{e['id']}/runs").json()}
+        if all(st.get(i) == "cancelled" for i in ids):
+            break
+        time.sleep(0.2)
+    assert all(st.get(i) == "cancelled" for i in ids)
+    assert client.get("/api/audit/verify").json()["valid"] is True
