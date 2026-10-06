@@ -213,6 +213,7 @@ dialog::backdrop{background:rgba(10,37,64,.32);backdrop-filter:blur(3px);}
   <button class="btn btn-ghost btn-sm" id="scopeBtn">Scope</button>
   <span class="badge" id="scopeBadge"><span class="dot"></span>no scope</span>
   <span class="badge" id="auditBadge">audit —</span>
+  <button class="btn btn-ghost btn-sm" id="toolsBtn">Tools</button>
   <button class="btn btn-primary btn-sm" id="reportsBtn">Reports</button>
 </header>
 
@@ -516,6 +517,26 @@ async function revokeScope(){const e=state.engagement;if(!e)return;
   const r=await del(`/api/engagements/${e.id}/authorization`);
   if(r.ok){e.has_authorization=false;updateScopeBadge();renderScopePanel();refreshAudit();toast("Scope revoked");}else toast("Revoke failed","err");}
 $("#reportsBtn").onclick=async()=>{await listReports();repDlg.showModal();};
+$("#toolsBtn").onclick=async()=>{await openTools();toolsDlg.showModal();};
+async function openTools(){
+  const d=await api("/api/tools");const s=d.summary||{};
+  $("#toolsSummary").innerHTML=`<div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi glass"><div class="n" style="color:#065f46">${s.installed||0}</div><div class="l">Installed</div></div>
+    <div class="kpi glass"><div class="n" style="color:var(--high)">${s.missing||0}</div><div class="l">Missing</div></div>
+    <div class="kpi glass"><div class="n">${s.total_tools||0}</div><div class="l">CLI tools</div></div>
+    <div class="kpi glass"><div class="n">${s.pure_python_modules||0}</div><div class="l">Built-in modules</div></div></div>`;
+  const row=t=>`<div class="jobrow glass" style="cursor:default;align-items:flex-start">
+    <span style="color:${t.installed?'#065f46':'var(--high)'};font-weight:700">${t.installed?'✓':'✗'}</span>
+    <div style="flex:1;min-width:0">
+      <div><span class="mono" style="font-weight:600">${esc(t.binary)}</span> <span class="tiny dim">· ${t.count} module(s)</span></div>
+      <div class="tiny dim" style="white-space:normal">${esc(t.plugins.join(', '))}</div>
+      ${t.installed?'':`<div class="mono tiny" style="margin-top:4px;color:#92400e;white-space:normal">↳ ${esc(t.install_hint)}</div>`}
+    </div></div>`;
+  const missing=d.tools.filter(t=>!t.installed), inst=d.tools.filter(t=>t.installed);
+  $("#toolsBody").innerHTML=
+    (missing.length?`<div class="rb-h" style="margin:4px 0 6px">Missing (simulated) — ${missing.length}</div>`+missing.map(row).join(''):'')
+    +(inst.length?`<div class="rb-h" style="margin:12px 0 6px">Installed (real) — ${inst.length}</div>`+inst.map(row).join(''):'');
+}
 async function genReport(){if(!state.engagement){toast("Select an engagement","err");return;}
   toast("Generating report…","info");await post(`/api/engagements/${state.engagement.id}/report`,{});await listReports();refreshAudit();toast("Report generated");}
 async function listReports(){const data=await api("/api/reports");
@@ -526,6 +547,13 @@ async function listReports(){const data=await api("/api/reports");
 
 (async function(){setMode("attack");await refreshEngagements();await refreshAudit();})();
 </script>
+<dialog id="toolsDlg"><div class="glass-strong dlg"><h3>Tools inventory</h3>
+  <div class="small muted" style="margin-bottom:8px">Modules whose tool is <b>installed</b> run for real; others run in <b>simulation</b>. Install a tool, then relaunch the app.</div>
+  <div id="toolsSummary"></div>
+  <div id="toolsBody" style="max-height:52vh;overflow:auto;margin-top:10px"></div>
+  <div class="nav"><button class="btn btn-ghost" onclick="toolsDlg.close()">Close</button></div>
+</div></dialog>
+
 <dialog id="jobDlg"><div class="glass-strong dlg"><h3 id="jobTitle">Scan</h3>
   <div id="jobBody" style="margin-top:6px"></div>
   <div class="nav"><button class="btn btn-ghost" onclick="jobDlg.close()">Close</button></div>

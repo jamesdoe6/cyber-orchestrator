@@ -18,7 +18,7 @@ from .config import settings
 from .database import init_db
 from .plugins import registry
 from .events import bus
-from .routers import audit, engagements, plugins, reports, runs, updates, ws
+from .routers import audit, engagements, plugins, reports, runs, tools, updates, ws
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -48,6 +48,7 @@ app.include_router(runs.router)
 app.include_router(audit.router)
 app.include_router(reports.router)
 app.include_router(updates.router)
+app.include_router(tools.router)
 app.include_router(ws.router)
 
 
