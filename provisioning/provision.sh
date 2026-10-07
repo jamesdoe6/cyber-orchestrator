@@ -75,7 +75,7 @@ if [[ $CORE_ONLY -eq 0 ]]; then
   if ! command -v theHarvester >/dev/null 2>&1; then
     echo "[*] theHarvester (dedicated venv fallback)…"
     rm -rf /opt/theHarvester
-    git clone --depth 1 https://github.com/laramies/theHarvester.git /opt/theHarvester >/dev/null 2>&1 \
+    git clone --depth 1 --branch 4.6.0 https://github.com/laramies/theHarvester.git /opt/theHarvester >/dev/null 2>&1 \
       && python3 -m venv /opt/theHarvester/venv \
       && /opt/theHarvester/venv/bin/pip install -q --upgrade pip >/dev/null 2>&1 \
       && /opt/theHarvester/venv/bin/pip install -q /opt/theHarvester >/dev/null 2>&1 \
