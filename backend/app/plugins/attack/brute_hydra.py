@@ -15,13 +15,19 @@ class Hydra(BasePlugin):
             Param("target", "Target host", "string", help="Host/IP in scope."),
             Param("service", "Service", "choice", default="ssh",
                   choices=["ssh", "ftp", "rdp", "smb", "http-get", "http-post-form"], help="Protocol module."),
-            Param("username", "Username / -L file", "string", help="Single user, or a path for a user list."),
-            Param("wordlist", "Password list path", "string", help="Path to a password wordlist on the VM."),
+            Param("username", "Username or users-file", "string",
+                  help="A single username (e.g. admin) OR an absolute path to a user list "
+                       "(e.g. /home/you/users.txt). Do NOT type -l/-L — it is added automatically.",
+                  suggestions=["admin", "root"]),
+            Param("wordlist", "Password list (absolute path)", "string",
+                  help="Absolute path to a password wordlist that exists on this machine (WSL).",
+                  suggestions=["/usr/share/wordlists/rockyou.txt",
+                               "/usr/share/seclists/Passwords/Common-Credentials/10-million-password-list-top-1000.txt"]),
             Param("tasks", "Parallel tasks", "int", required=False, default=4, help="-t; keep modest to avoid lockouts/DoS."),
         ],
         steps=[
             Step("target", "1. Target & service", "Authorized host and the service to test. Out-of-scope is blocked.", ["target", "service"], "Host+service."),
-            Step("creds", "2. Credentials source", "User (or -L list path) and the password wordlist path.", ["username", "wordlist", "tasks"], "Wordlist config."),
+            Step("creds", "2. Credentials source", "A username (or a users-file path) and the password wordlist path on this machine.", ["username", "wordlist", "tasks"], "Wordlist config."),
             Step("run", "3. Test", "Run and report any accepted credentials. Mind account-lockout policy.", [], "Valid credential pairs, if any."),
         ],
     )
