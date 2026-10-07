@@ -62,16 +62,18 @@ _HINTS: dict[str, str] = {
 @router.get("")
 def tool_inventory():
     by_binary: dict[str, set] = defaultdict(set)
+    resolvers: dict[str, list] = defaultdict(list)
     pure_python = 0
     for p in registry.all_plugins():
         if p.meta.binary is None:
             pure_python += 1
             continue
         by_binary[p.meta.binary].add(p.meta.slug)
+        resolvers[p.meta.binary].append(p)
 
     tools = []
     for binary in sorted(by_binary):
-        installed = ToolRunner.available(binary)
+        installed = any(pl.resolve_binary() for pl in resolvers[binary]) or ToolRunner.available(binary)
         tools.append({
             "binary": binary,
             "installed": installed,

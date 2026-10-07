@@ -18,7 +18,7 @@ def list_plugins(mode: str | None = None):
             continue
         d = p.meta.to_dict()
         d["attack_detail"] = enrich(p.meta.attack_techniques)
-        d["installed"] = p.meta.binary is None or ToolRunner.available(p.meta.binary)
+        d["installed"] = p.meta.binary is None or p.resolve_binary() is not None
         out.append(d)
     return {"plugins": out}
 
@@ -30,5 +30,5 @@ def get_plugin(slug: str):
         return {"error": "not_found"}
     d = p.meta.to_dict()
     d["attack_detail"] = enrich(p.meta.attack_techniques)
-    d["installed"] = p.meta.binary is None or ToolRunner.available(p.meta.binary)
+    d["installed"] = p.meta.binary is None or p.resolve_binary() is not None
     return d

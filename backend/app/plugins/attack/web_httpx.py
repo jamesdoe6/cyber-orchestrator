@@ -2,6 +2,8 @@
 from __future__ import annotations
 import json
 from ...models import Mode, Severity
+import os, shutil
+
 from ..base import BasePlugin, FindingDraft, Param, PluginMeta, Step
 
 

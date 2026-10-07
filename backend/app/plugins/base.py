@@ -161,6 +161,15 @@ class ToolRunner:
 class BasePlugin(ABC):
     meta: PluginMeta
 
+    def resolve_binary(self) -> str | None:
+        """Absolute path of the wrapped tool, or None if absent.
+
+        Override when a plugin must disambiguate a name clash (e.g. httpx the
+        scanner vs. httpx the Python library CLI). Default: PATH lookup.
+        """
+        import shutil
+        return shutil.which(self.meta.binary) if self.meta.binary else None
+
     def build_argv(self, params: dict) -> list[str] | None:
         """Return the command line, or None for a pure-Python plugin."""
         return None

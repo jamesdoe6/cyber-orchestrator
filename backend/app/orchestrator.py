@@ -142,7 +142,7 @@ def execute_run(run_id: int, actor: str, timeout: int = 1800) -> None:
             result = plugin.execute_python(params)
             for ln in (result.raw_output or "").splitlines()[:_MAX_STREAM_LINES]:
                 bus.publish(eid, {"type": "line", "run_id": run_id, "line": ln})
-        elif ToolRunner.available(plugin.meta.binary):
+        elif plugin.resolve_binary():
             result = runner.stream(argv, on_line, control=control)
         else:
             sim = plugin.simulate(params)
